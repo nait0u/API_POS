@@ -11,12 +11,16 @@ export default defineConfig({
     },
   },
   server: {
-    // Proxy para desarrollo local → Tomcat GeneXus
     proxy: {
       '/api': {
-        target: 'http://192.168.56.18:8080',
+        target: process.env.VITE_PROXY_API_TARGET,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/bff': {
+        target: process.env.VITE_PROXY_BFF_TARGET ?? 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/bff/, ''),
       },
     },
   },
