@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,13 +53,6 @@ import { useVentas } from '@/hooks/useVentas';
 import { usePosState } from '@/hooks/usePosState';
 import type { FiltroVentas, NotaVentaEstado } from '@/types/ventas';
 
-interface SalesHistoryViewProps {
-  /** Cambia la vista activa del shell (sales → customer-selection / nota-de-venta). */
-  onViewChange: (view: string) => void;
-  /** Notifica al shell que se creó una venta directa (sin pasar por selección de cliente). */
-  onSaleCreated: (notaVentaKey: number) => void;
-}
-
 const TODAY = new Date().toISOString().slice(0, 10);
 
 function estadoBadge(rawEstado: string) {
@@ -94,7 +88,8 @@ function formatChipDate(dateStr: string): string {
   return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-export function SalesHistoryView({ onViewChange, onSaleCreated }: SalesHistoryViewProps) {
+export function SalesHistoryView() {
+  const navigate = useNavigate();
   const { status: posStatus, estado: posEstado, resolveNuevaVentaTarget } = usePosState();
   const [searchCustomer, setSearchCustomer] = useState('');
 
@@ -180,11 +175,13 @@ export function SalesHistoryView({ onViewChange, onSaleCreated }: SalesHistoryVi
   // ── CRUD handlers ────────────────────────────────────────────────────────
 
   const handleNuevaVenta = async () => {
+    console.log('[handleNuevaVenta] posStatus:', posStatus, '| posEstado:', JSON.stringify(posEstado));
     if (posStatus !== 'ready') {
       toast.error('Estado de caja no disponible todavía');
       return;
     }
     const target = resolveNuevaVentaTarget();
+    console.log('[handleNuevaVenta] target resuelto:', target);
     if (target === null) {
       // accionRequerida (p.ej. ABRIR_CAJA) ya está siendo manejada por PosStateGate.
       toast.error(
@@ -195,14 +192,14 @@ export function SalesHistoryView({ onViewChange, onSaleCreated }: SalesHistoryVi
       return;
     }
     if (target === 'customer-selection') {
-      onViewChange('customer-selection');
+      navigate('/ventas/nueva/cliente');
       return;
     }
     // target === 'nota-de-venta': flujo directo, sin selección de cliente.
     try {
       const notaVentaKey = await crearVenta(0);
       toast.success(`Venta creada con éxito (Folio: ${notaVentaKey})`);
-      onSaleCreated(notaVentaKey);
+      navigate(`/ventas/${notaVentaKey}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear la venta');
     }
@@ -488,6 +485,7 @@ export function SalesHistoryView({ onViewChange, onSaleCreated }: SalesHistoryVi
                                   size="icon"
                                   className="text-primary hover:bg-brand-50 hover:text-primary"
                                   aria-label={`Continuar venta ${venta.NotaVentaNumero}`}
+                                  onClick={() => navigate(`/ventas/${venta.NotaVentaKey}`)}
                                 >
                                   <ChevronRight className="w-5 h-5" />
                                 </Button>

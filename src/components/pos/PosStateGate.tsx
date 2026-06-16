@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -15,9 +15,10 @@ import { usePosState } from '@/hooks/usePosState';
  *  - Modal "Abrir Caja" cuando accionRequerida === 'ABRIR_CAJA'.
  *  - Toast aria-live="polite" por cada alerta recibida del BFF.
  *
- * Debe montarse una sola vez, dentro de <PosStateProvider>.
+ * Cuando se le pasan children, los renderiza además del modal (uso como layout guard).
+ * Debe montarse dentro de <PosStateProvider>.
  */
-export function PosStateGate() {
+export function PosStateGate({ children }: { children?: React.ReactNode }) {
   const { status, estado } = usePosState();
 
   // Banner de alertas — se emite vía Sonner para mantener un único sistema
@@ -35,29 +36,31 @@ export function PosStateGate() {
     status === 'ready' && estado?.accionRequerida === 'ABRIR_CAJA';
 
   return (
-    <Dialog open={mustOpenCaja}>
-      <DialogContent
-        className="sm:max-w-md"
-        // Evita cerrar el modal por Esc o click-outside: la acción es obligatoria.
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        aria-describedby="abrir-caja-desc"
-      >
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-primary shrink-0">
-              <LockKeyhole className="w-5 h-5" aria-hidden="true" />
+    <>
+      {children}
+      <Dialog open={mustOpenCaja}>
+        <DialogContent
+          className="sm:max-w-md"
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          aria-describedby="abrir-caja-desc"
+        >
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-primary shrink-0">
+                <LockKeyhole className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <DialogTitle>Caja cerrada</DialogTitle>
             </div>
-            <DialogTitle>Caja cerrada</DialogTitle>
-          </div>
-          <DialogDescription id="abrir-caja-desc">
-            Para comenzar a operar el punto de venta debes abrir la caja del
-            turno actual. No es posible realizar ninguna acción hasta que la
-            caja esté en estado <strong className="text-foreground">Abierta</strong>.
-          </DialogDescription>
-        </DialogHeader>
-      </DialogContent>
-    </Dialog>
+            <DialogDescription id="abrir-caja-desc">
+              Para comenzar a operar el punto de venta debes abrir la caja del
+              turno actual. No es posible realizar ninguna acción hasta que la
+              caja esté en estado <strong className="text-foreground">Abierta</strong>.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

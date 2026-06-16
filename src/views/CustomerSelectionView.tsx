@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useVentas } from '@/hooks/useVentas';
@@ -48,16 +49,8 @@ import { EMPTY_CUSTOMER_FORM } from '@/types/customer';
 
 type DialogMode = 'create' | 'edit';
 
-interface CustomerSelectionViewProps {
-  onBack?: () => void;
-  /** Notifica al shell que se creó la venta; padre decide la navegación. */
-  onSaleCreated?: (notaVentaKey: number) => void;
-}
-
-export function CustomerSelectionView({
-  onBack,
-  onSaleCreated,
-}: CustomerSelectionViewProps) {
+export function CustomerSelectionView() {
+  const navigate = useNavigate();
   const { crearVenta, isCreating } = useVentas();
   const {
     clientes,
@@ -132,7 +125,7 @@ export function CustomerSelectionView({
     try {
       const notaVentaKey = await crearVenta(customer.clienteKey);
       toast.success(`Venta ${notaVentaKey} creada para "${customer.fullName}"`);
-      onSaleCreated?.(notaVentaKey);
+      navigate(`/ventas/${notaVentaKey}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear la venta');
     }
@@ -224,9 +217,9 @@ export function CustomerSelectionView({
           >
             <button
               type="button"
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors disabled:cursor-default"
-              disabled={!onBack}
+              onClick={() => navigate(-1)}
+              disabled={isCreating}
+              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
             >
               <Home className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Inicio</span>

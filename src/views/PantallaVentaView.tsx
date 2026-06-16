@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShoppingCart,
@@ -30,8 +31,9 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { getCategoriasMenu, getCartaTouch } from '@/services/apiClient';
-import type { GetCategoriasMenuPaginadoOutput, GetCartaTouchOutput } from '@/types/ventas';
+import { getCategoriasMenu, getCartaTouch, getPantallaVentaInit, getPantallaVentaTotales, getPantallaVentaCarrito } from '@/services/apiClient';
+import { toast } from 'sonner';
+import type { GetCategoriasMenuPaginadoOutput, GetPantallaVentaInitOutput, GetPantallaVentaTotalesOutput, GetPantallaVentaCarritoOutput } from '@/types/ventas';
 import { CategoriaCard } from '@/components/pos/CategoriaCard';
 import { ProductoCard } from '@/components/pos/ProductoCard';
 
@@ -108,11 +110,51 @@ function CategoriasSkeleton() {
 // ---------------------------------------------------------------------------
 // PantallaVentaView
 // ---------------------------------------------------------------------------
-interface PantallaVentaViewProps {
-  notaVentaKey: number | null;
-}
+export function PantallaVentaView() {
+  const { notaVentaKey: notaVentaKeyParam } = useParams<{ notaVentaKey: string }>();
+  const navigate = useNavigate();
+  const keyAsNumber = Number(notaVentaKeyParam);
 
-export function PantallaVentaView({ notaVentaKey: _notaVentaKey }: PantallaVentaViewProps) {
+  const [isLoadingPOS, setIsLoadingPOS] = useState(true);
+  const [errorPOS, setErrorPOS] = useState<string | null>(null);
+  const [initData, setInitData] = useState<GetPantallaVentaInitOutput | null>(null);
+  const [totalesData, setTotalesData] = useState<GetPantallaVentaTotalesOutput | null>(null);
+  const [carritoData, setCarritoData] = useState<GetPantallaVentaCarritoOutput | null>(null);
+
+  useEffect(() => {
+    if (!keyAsNumber || isNaN(keyAsNumber)) {
+      setErrorPOS('Folio de venta inválido');
+      setIsLoadingPOS(false);
+      return;
+    }
+
+    async function loadPOS() {
+      setIsLoadingPOS(true);
+      setErrorPOS(null);
+      try {
+        const [initRes, totalesRes, carritoRes] = await Promise.all([
+          getPantallaVentaInit(keyAsNumber, 'NotaVenta'),
+          getPantallaVentaTotales(keyAsNumber),
+          getPantallaVentaCarrito(keyAsNumber),
+        ]);
+        setInitData(initRes);
+        setTotalesData(totalesRes);
+        setCarritoData(carritoRes);
+        const estadoVenta = initRes?.Estado?.NotaVentaEstado || initRes?.SDTPantallaVentaInit?.Estado?.NotaVentaEstado || initRes?.estado?.notaVentaEstado;
+        if (estadoVenta === 'AFIRME') {
+          toast.info('Esta venta está cerrada (AFIRME) y es de solo lectura.');
+        }
+      } catch (err) {
+        console.error('Error cargando el POS:', err);
+        setErrorPOS('Ocurrió un error al cargar los datos de la venta.');
+      } finally {
+        setIsLoadingPOS(false);
+      }
+    }
+
+    void loadPOS();
+  }, [keyAsNumber]);
+
   // Tarea 3: nuevo estado para modo catálogo
   const [modoCatalogo, setModoCatalogo] = useState<'filtrar' | 'carta'>('filtrar');
   const [searchTerm, setSearchTerm] = useState('');
@@ -144,6 +186,29 @@ export function PantallaVentaView({ notaVentaKey: _notaVentaKey }: PantallaVenta
 
   const gruposProductos = dataCarta?.SDTCartaVenta?.CartaGrupos ?? [];
   const categorias = data?.ColClasificadoras ?? [];
+
+  if (isLoadingPOS) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground text-lg">Cargando datos de la venta...</p>
+      </div>
+    );
+  }
+
+  if (errorPOS) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-4">
+        <p className="text-destructive text-xl font-semibold">{errorPOS}</p>
+        <button type="button" onClick={() => navigate(-1)} className="text-primary hover:underline">
+          Volver atrás
+        </button>
+      </div>
+    );
+  }
+
+  // initData, totalesData, carritoData disponibles para subcomponentes futuros
+  void initData; void totalesData; void carritoData;
 
   return (
     <div

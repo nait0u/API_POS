@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ShoppingCart,
   ClipboardList,
@@ -43,17 +44,15 @@ import { Button } from "@/components/ui/button";
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarProps {
-  currentView: string;
-  onViewChange: (view: string) => void;
   isCollapsed: boolean;
   onToggle?: () => void;
 }
 
 interface SidebarItem {
-  id?: string;
+  path?: string;
   label: string;
   Icon: LucideIcon;
-  children?: { id?: string; label: string; Icon: LucideIcon }[];
+  children?: { path?: string; label: string; Icon: LucideIcon }[];
 }
 
 interface SidebarSection {
@@ -62,33 +61,46 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
-// Mapa de vista → sección que la contiene
-const VIEW_TO_SECTION: Record<string, string> = {
-  prices: 'definitions',
+// Fragmento de URL → clave de sección que debe estar expandida
+const PATH_TO_SECTION: Record<string, string> = {
+  '/precios': 'definitions',
 };
 
-export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: SidebarProps) {
+function pathMatchesSection(pathname: string, sectionKey: string): boolean {
+  return Object.entries(PATH_TO_SECTION).some(
+    ([path, key]) => key === sectionKey && pathname.startsWith(path),
+  );
+}
+
+export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => ({
     config: false,
     gestion: false,
-    definitions: VIEW_TO_SECTION[currentView] === 'definitions',
+    definitions: pathMatchesSection(location.pathname, 'definitions'),
   }));
 
-  // Auto-expande la sección padre cuando cambia la vista activa
+  // Auto-expande la sección padre cuando cambia la ruta activa
   useEffect(() => {
-    const sectionKey = VIEW_TO_SECTION[currentView];
-    if (sectionKey) setExpandedSections((prev) => ({ ...prev, [sectionKey]: true }));
-  }, [currentView]);
+    const entry = Object.entries(PATH_TO_SECTION).find(([path]) =>
+      location.pathname.startsWith(path),
+    );
+    if (entry) {
+      const sectionKey = entry[1];
+      setExpandedSections((prev) => ({ ...prev, [sectionKey]: true }));
+    }
+  }, [location.pathname]);
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Lista de Precios movida a Definiciones → no va en accesos directos
   const menuItems = [
-    { id: 'pos', label: 'Venta', Icon: ShoppingCart },
-    { id: 'sales', label: 'Ventas', Icon: Receipt },
-    { id: 'reports', label: 'Dashboard', Icon: BarChart3 },
+    { path: '/ventas/nueva', label: 'Venta', Icon: ShoppingCart },
+    { path: '/ventas', label: 'Ventas', Icon: Receipt },
+    { path: '/dashboard', label: 'Dashboard', Icon: BarChart3 },
   ];
 
   const sections: SidebarSection[] = [
@@ -142,13 +154,15 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
         { label: 'Clientes', Icon: Contact },
         { label: 'Productos', Icon: Package },
         { label: 'Balanzas', Icon: Scale },
-        { id: 'prices', label: 'Lista de Precios', Icon: ClipboardList },
+        { path: '/precios', label: 'Lista de Precios', Icon: ClipboardList },
         { label: 'Grupo Selector', Icon: LayoutGrid },
         { label: 'Categoría Precio', Icon: DollarSign },
         { label: 'Autoriza Este Terminal', Icon: KeyRound },
       ],
     },
   ];
+
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   return (
     <aside
@@ -179,20 +193,20 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
         <div className="space-y-1">
           {menuItems.map((item) => (
             <button
-              key={item.id}
-              onClick={() => onViewChange(item.id)}
+              key={item.path}
+              onClick={() => navigate(item.path)}
               className={cn(
                 "flex items-center rounded-lg font-medium text-sm transition-all group",
                 isCollapsed
                   ? "w-12 h-12 justify-center mx-auto"
                   : "w-full gap-3 px-4 py-3",
-                currentView === item.id
+                isActive(item.path)
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
               title={isCollapsed ? item.label : undefined}
             >
-              <item.Icon className={cn("w-5 h-5 flex-shrink-0", currentView === item.id ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary")} />
+              <item.Icon className={cn("w-5 h-5 flex-shrink-0", isActive(item.path) ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary")} />
               {!isCollapsed && <span>{item.label}</span>}
             </button>
           ))}
@@ -201,7 +215,9 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
         {/* Secciones colapsables */}
         {sections.map((section) => {
           const isExpanded = expandedSections[section.key];
-          const sectionContainsActive = section.items.some((item) => item.id === currentView);
+          const sectionContainsActive = section.items.some(
+            (item) => !!item.path && isActive(item.path),
+          );
 
           return (
             <div key={section.key}>
@@ -247,10 +263,9 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
               >
                 <div className="space-y-1">
                   {section.items.map((item) => {
-                    const isItemActive = !!item.id && item.id === currentView;
+                    const isItemActive = !!item.path && isActive(item.path);
                     return (
                       <div key={item.label}>
-                        {/* Ítem regular o cabecera de sub-sección */}
                         <button
                           className={cn(
                             "flex items-center rounded-lg font-medium text-sm transition-all",
@@ -264,8 +279,8 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
                           )}
                           title={isCollapsed ? item.label : undefined}
                           onClick={
-                            item.id
-                              ? () => onViewChange(item.id!)
+                            item.path
+                              ? () => navigate(item.path!)
                               : item.children
                               ? () => toggleSection(`${section.key}.${item.label}`)
                               : undefined
@@ -304,6 +319,7 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
                                   key={child.label}
                                   className="w-full flex items-center gap-3 py-2 pl-12 pr-4 rounded-lg font-medium text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
                                   title={child.label}
+                                  onClick={child.path ? () => navigate(child.path!) : undefined}
                                 >
                                   <child.Icon className="w-4 h-4 flex-shrink-0" />
                                   <span>{child.label}</span>

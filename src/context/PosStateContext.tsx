@@ -29,29 +29,29 @@ import type {
 
 const BFF_ESTADO_CAJA = '/bff/ventas/estado-caja';
 
-// Shape real que devuelve el BFF (PascalCase, tal como viene de GeneXus).
+// Shape real que devuelve el BFF (camelCase estricto, tal como viene de NestJS).
 interface EstadoCajaRaw {
-  EsCaja: boolean;
-  EstadoCaja: string;
-  RequiereClientePreVenta: boolean;
-  TurnoCajaKey: string | number;
-  UsaMesas: boolean;
-  AccionRequerida?: string;
-  Alertas?: string[];
+  esCaja: boolean;
+  estadoCaja: string;
+  requiereClientePreVenta: boolean;
+  turnoCajaKey: number;
+  usaMesas: boolean;
+  accionRequerida?: string;
+  alertas?: string[];
 }
 
 function mapEstadoCaja(raw: EstadoCajaRaw): PosEstadoCajaPayload {
-  const estadoCaja = (raw.EstadoCaja ?? '').trim();
+  const estadoCaja = (raw.estadoCaja ?? '').trim();
   return {
-    esCaja: raw.EsCaja,
-    turnoCajaKey: Number(raw.TurnoCajaKey) || 0,
+    esCaja: raw.esCaja,
+    turnoCajaKey: Number(raw.turnoCajaKey) || 0,
     estadoCaja,
-    usaMesas: raw.UsaMesas,
-    requiereClientePreVenta: raw.RequiereClientePreVenta,
+    usaMesas: raw.usaMesas,
+    requiereClientePreVenta: raw.requiereClientePreVenta,
     accionRequerida:
-      raw.AccionRequerida ??
-      (raw.EsCaja && estadoCaja !== 'Abierta' ? 'ABRIR_CAJA' : 'NINGUNA'),
-    alertas: raw.Alertas ?? [],
+      raw.accionRequerida ??
+      (raw.esCaja && estadoCaja !== 'Abierta' ? 'ABRIR_CAJA' : 'NINGUNA'),
+    alertas: raw.alertas ?? [],
   };
 }
 
@@ -99,9 +99,18 @@ export function PosStateProvider({ children }: PosStateProviderProps) {
   const resolveNuevaVentaTarget = useCallback<
     PosStateContextValue['resolveNuevaVentaTarget']
   >(() => {
-    if (!estado) return null;
-    if (estado.estadoCaja !== 'Abierta') return null;
-    return estado.requiereClientePreVenta ? 'customer-selection' : 'nota-de-venta';
+    console.log('[resolveNuevaVentaTarget] estado actual:', JSON.stringify(estado));
+    if (!estado) {
+      console.warn('[resolveNuevaVentaTarget] → null (sin estado)');
+      return null;
+    }
+    if (estado.estadoCaja !== 'Abierta') {
+      console.warn('[resolveNuevaVentaTarget] → null (caja no abierta, estadoCaja:', estado.estadoCaja, ')');
+      return null;
+    }
+    const target = estado.requiereClientePreVenta ? 'customer-selection' : 'nota-de-venta';
+    console.log('[resolveNuevaVentaTarget] → target:', target, '| requiereClientePreVenta:', estado.requiereClientePreVenta, '| usaMesas:', estado.usaMesas);
+    return target;
   }, [estado]);
 
   const value = useMemo<PosStateContextValue>(
