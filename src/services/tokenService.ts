@@ -1,4 +1,4 @@
-const PRECIOS_BASE = `${import.meta.env.VITE_API_BASE || '/api/AndesPOSAPI2602N/POS/AI_API'}/Precios/xListaDePrecios`;
+const PRECIOS_BASE = `${import.meta.env.VITE_API_BASE || '/api/AndesPOS_API2602N/POS/AI_API'}/Precios/xListaDePrecios`;
 
 export async function generateToken(strControl: string): Promise<string> {
   const response = await fetch(`${PRECIOS_BASE}/GetToken`, {

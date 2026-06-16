@@ -96,9 +96,10 @@ Todos los tokens están definidos como CSS custom properties en `src/index.css` 
 | `--background` | `bg-background` | `#F8FAFC` | Fondo general de la aplicación |
 | `--card` | `bg-card` | `#FFFFFF` | Tarjetas, paneles, contenedores |
 | `--popover` | `bg-popover` | `#FFFFFF` | Popovers, dropdowns |
-| `--muted` | `bg-muted` | `#F1F5F9` | Fondos secundarios, filas alternas |
-| `--accent` | `bg-accent` | `#F1F5F9` | Hover general sobre elementos |
-| `--secondary` | `bg-secondary` | `#F1F5F9` | Botones secundarios |
+| `--muted` | `bg-muted` | `#e8eaf6` | Fondos secundarios, filas alternas |
+| `--accent` | `bg-accent` | `#e8eaf6` | Hover general sobre elementos |
+| `--secondary` | `bg-secondary` | `#e8eaf6` | Botones secundarios |
+| `--sidebar-accent` | `bg-sidebar-accent` | `#c5cae9` | Ítem activo/hover en el sidebar |
 
 #### Texto
 
@@ -109,13 +110,13 @@ Todos los tokens están definidos como CSS custom properties en `src/index.css` 
 | `--muted-foreground` | `text-muted-foreground` | `#475569` | Labels secundarios, placeholders, descripciones |
 | `--popover-foreground` | `text-popover-foreground` | `#0F172A` | Texto en popovers |
 
-#### Acciones Principales (Paleta Azul Institucional)
+#### Acciones Principales (Paleta Lucien Institucional)
 
 | Token CSS | Clase Tailwind | Valor Hex | Uso |
 |---|---|---|---|
-| `--primary` | `bg-primary` | `#1E40AF` | Botón "Cobrar", acciones principales, header institucional |
+| `--primary` | `bg-primary` | `#505daa` | Botón "Cobrar", acciones principales, header institucional |
 | `--primary-foreground` | `text-primary-foreground` | `#FFFFFF` | Texto sobre fondo primary |
-| `--ring` | `ring-ring` | `#1E40AF` | Anillo de focus en inputs |
+| `--ring` | `ring-ring` | `#505daa` | Anillo de focus en inputs |
 
 **Hover sobre primary:** `hover:bg-primary/90` o `hover:bg-brand-900` para un azul ligeramente más oscuro.
 
@@ -125,7 +126,7 @@ Todos los tokens están definidos como CSS custom properties en `src/index.css` 
 
 | Token CSS | Clase Tailwind | Valor Hex | Uso |
 |---|---|---|---|
-| `--border` | `border-border` | `#E2E8F0` | Bordes estándar, divisiones |
+| `--border` | `border-border` | `#9fa8da` | Bordes estándar, divisiones |
 | `--input` | `border-input` | `#E2E8F0` | Bordes de inputs |
 
 #### Estados Semánticos
@@ -142,13 +143,12 @@ Para casos que requieran más granularidad que `primary`:
 
 | Clase | Hex | Uso típico |
 |---|---|---|
-| `bg-brand-50` | `#EFF6FF` | Fondos sutiles de acento |
-| `bg-brand-100` | `#DBEAFE` | Badges, tags |
-| `bg-brand-200` | `#BFDBFE` | Bordes activos |
-| `bg-brand-500` | `#3B82F6` | Iconos, acentos |
-| `bg-brand-700` | `#1D4ED8` | Hover intenso |
-| `bg-brand-800` | `#1E40AF` | = Primary |
-| `bg-brand-900` | `#1E3A8A` | Hover sobre primary, header hover |
+| `bg-brand-50` | `#e8eaf6` | Fondos sutiles de acento |
+| `bg-brand-100` | `#c5cae9` | Badges, tags |
+| `bg-brand-200` | `#9fa8da` | Bordes activos |
+| `bg-brand-500` | `#505daa` | Iconos, acentos |
+| `bg-brand-700` | `#3d4a8a` | Hover intenso |
+| `bg-brand-900` | `#2a3570` | Hover sobre primary, header hover |
 
 #### Escala de Peligro (`danger-*`)
 
@@ -168,8 +168,9 @@ El tema oscuro invierte las superficies manteniendo la identidad de marca:
 | `--background` | `#0F172A` |
 | `--foreground` | `#F8FAFC` |
 | `--card` | `#1E293B` |
-| `--primary` | `#3B82F6` (más claro para contraste) |
+| `--primary` | `#9fa8da` (Lucien 200 — contraste AA sobre fondos oscuros) |
 | `--border` | `#334155` |
+| `--sidebar` | `#2a3570` (Lucien 900 — sidebar oscuro con identidad de marca) |
 
 ---
 
@@ -309,6 +310,29 @@ Tamaños: `default`, `sm`, `lg`, `icon`.
 ```
 
 **Regla:** Nunca usar `<input>` HTML crudo. Siempre importar desde `@/components/ui/input`.
+
+**Regla — campos en formularios (modales y diálogos):** Todo `<Input>` y `<SelectTrigger>` dentro de un formulario **debe** llevar `border-2 border-brand-200 focus-visible:border-primary`. Esto asegura que los campos sean visualmente identificables incluso sin foco, evitando que el usuario no sepa qué puede editar.
+
+```tsx
+// Input en formulario
+<Input
+  id="f-campo"
+  className="border-2 border-brand-200 focus-visible:border-primary"
+/>
+
+// Input con fuente mono (códigos, teléfonos)
+<Input
+  id="f-codigo"
+  className="font-mono border-2 border-brand-200 focus-visible:border-primary"
+/>
+
+// SelectTrigger en formulario (siempre agregar w-full)
+<SelectTrigger id="f-select" className="w-full border-2 border-brand-200 focus-visible:border-primary">
+  <SelectValue />
+</SelectTrigger>
+```
+
+Los campos de búsqueda en barras de filtros (fuera de formularios) **no** llevan este estilo — solo los inputs dentro de `<form>` o diálogos de creación/edición.
 
 #### `<Card />`
 
@@ -485,6 +509,163 @@ Todo bloque de información debe vivir en una tarjeta:
 ```
 
 **Regla:** Toda vista principal debe ser scrolleable. Nunca crear layouts que corten contenido.
+
+### 6.6. Header de Vista (Page Header)
+
+Todas las vistas deben comenzar con un header limpio, **sin card ni sombra**. El título usa `<h1>` semántico y el subtítulo tiene un color ligeramente más claro que el texto principal.
+
+```tsx
+<div className="flex-1 overflow-y-auto">
+  {/* Header limpio — sin bg-white, sin rounded, sin shadow */}
+  <div className="px-6 pt-8 pb-6 border-b border-border">
+    <div className="flex items-end justify-between">
+      <div className="space-y-1">
+        <h1 className="text-foreground text-3xl tracking-tight">
+          Título de Vista
+        </h1>
+        <p className="text-muted-foreground text-base">
+          Descripción de la vista
+        </p>
+      </div>
+      {/* Botones de acción principales (si aplica) */}
+    </div>
+  </div>
+
+  {/* Contenido de la vista */}
+  <div className="p-6 space-y-6">
+    {/* ... */}
+  </div>
+</div>
+```
+
+**Reglas:**
+- `<h1>` con `text-3xl tracking-tight`, sin `font-bold`.
+- Subtítulo con `text-muted-foreground`.
+- `border-b border-border` como separador sutil entre header y contenido.
+- Los botones de acción primaria (Nuevo, Importar, etc.) van en la **barra de búsqueda/filtros** debajo del header, NO junto al título.
+- El contenido va siempre dentro de `<div className="p-6 space-y-6">` después del header.
+
+### 6.7. Panel de Filtros Colapsable
+
+Patrón estándar para filtros en vistas con tabla de datos. El botón de toggle vive en la barra de búsqueda y el panel se despliega debajo como un `<Card>`.
+
+```tsx
+{/* Barra de búsqueda + toggle de filtros */}
+<div className="flex items-center gap-3 flex-wrap">
+  <div className="relative flex-1 min-w-[200px]">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+    <Input className="pl-10 text-base" placeholder="Buscar..." />
+  </div>
+  <Button
+    variant="outline"
+    aria-expanded={filtersOpen}
+    aria-controls="filter-panel"
+    onClick={() => setFiltersOpen((o) => !o)}
+  >
+    <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+    Filtros
+    {activeFilterCount > 0 && (
+      <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold w-4 h-4 leading-none">
+        {activeFilterCount}
+      </span>
+    )}
+    {filtersOpen
+      ? <ChevronUp className="w-4 h-4" aria-hidden="true" />
+      : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
+  </Button>
+</div>
+
+{/* Panel colapsable */}
+{filtersOpen && (
+  <Card id="filter-panel" role="region" aria-label="Panel de filtros avanzados">
+    <CardContent className="p-4 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <label htmlFor="filter-x" className="text-sm font-medium text-foreground">
+            Etiqueta
+          </label>
+          <Input id="filter-x" placeholder="..." />
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+        <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+          <X className="w-4 h-4" aria-hidden="true" />
+          Limpiar
+        </Button>
+        {/* Agregar botón "Buscar" solo si los filtros NO se aplican reactivamente */}
+      </div>
+    </CardContent>
+  </Card>
+)}
+```
+
+**Reglas:**
+- El badge de conteo (`activeFilterCount`) solo se muestra cuando hay al menos un filtro activo.
+- El ícono `ChevronUp`/`ChevronDown` indica visualmente el estado del panel.
+- El panel usa `<Card>` con `id` y `role="region"` para accesibilidad.
+- Cada campo lleva `<label>` con `htmlFor` apuntando al `id` del control.
+- Si los filtros se aplican reactivamente (sin fetch explícito), omitir el botón "Buscar" y solo mostrar "Limpiar".
+
+### 6.8. Estilo Base de Tablas
+
+Todas las tablas del sistema usan el mismo estilo base. Nunca personalizar el look de una tabla individualmente.
+
+```tsx
+<Card>
+  <CardContent className="p-0">
+    <Table containerClassName="overflow-auto max-h-[calc(100vh-22rem)]">
+      <TableHeader className="sticky top-0 z-10 bg-card border-b border-border shadow-sm">
+        <TableRow>
+          <TableHead className="font-semibold text-foreground px-4">COLUMNA</TableHead>
+          <TableHead className="font-semibold text-foreground px-4 text-right">NÚMERO</TableHead>
+          <TableHead className="font-semibold text-foreground px-4 text-center">ACCIONES</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {/* Estado de carga */}
+        <TableRow>
+          <TableCell colSpan={N} className="h-32 text-center">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+              <span className="text-base">Cargando...</span>
+            </div>
+          </TableCell>
+        </TableRow>
+
+        {/* Estado vacío */}
+        <TableRow>
+          <TableCell colSpan={N} className="h-32 text-center text-muted-foreground text-base">
+            No se encontraron resultados.
+          </TableCell>
+        </TableRow>
+
+        {/* Fila de datos */}
+        <TableRow key={item.id}>
+          <TableCell className="px-4 text-sm text-foreground">{item.campo}</TableCell>
+          <TableCell className="px-4 font-mono text-sm text-foreground">código/SKU</TableCell>
+          <TableCell className="px-4 font-mono text-sm text-foreground text-right font-medium">$precio</TableCell>
+          <TableCell className="px-4">
+            <div className="flex items-center justify-center gap-1">
+              {/* Botones de acción con Tooltip */}
+            </div>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  </CardContent>
+</Card>
+```
+
+**Reglas:**
+- `<Card>` sin className extra. `<CardContent className="p-0">` directamente.
+- `<TableHeader>` siempre sticky con `sticky top-0 z-10 bg-card border-b border-border shadow-sm`.
+- Nombres de columnas en **MAYÚSCULAS**, `font-semibold text-foreground`.
+- `<TableRow>` de datos sin `className` extra — los estilos hover/border vienen del componente base.
+- Celdas de texto normal: `px-4 text-sm text-foreground`.
+- Celdas de código/SKU: agregar `font-mono`.
+- Celdas numéricas (precios, totales): `text-right font-medium font-mono`.
+- Columna de acciones: header con `text-center`, celda con `flex items-center justify-center gap-1`.
+- Estados de carga y vacío: `h-32 text-center` para altura consistente.
 
 ---
 

@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ShoppingCart,
   ClipboardList,
   BarChart3,
-  Settings,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -37,7 +36,7 @@ import {
   Scale,
   LayoutGrid,
   DollarSign,
-  KeyRound
+  KeyRound,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,9 +50,10 @@ interface SidebarProps {
 }
 
 interface SidebarItem {
+  id?: string;
   label: string;
   Icon: LucideIcon;
-  children?: { label: string; Icon: LucideIcon }[];
+  children?: { id?: string; label: string; Icon: LucideIcon }[];
 }
 
 interface SidebarSection {
@@ -62,22 +62,33 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
+// Mapa de vista → sección que la contiene
+const VIEW_TO_SECTION: Record<string, string> = {
+  prices: 'definitions',
+};
+
 export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: SidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => ({
     config: false,
     gestion: false,
-    definitions: false,
-  });
+    definitions: VIEW_TO_SECTION[currentView] === 'definitions',
+  }));
+
+  // Auto-expande la sección padre cuando cambia la vista activa
+  useEffect(() => {
+    const sectionKey = VIEW_TO_SECTION[currentView];
+    if (sectionKey) setExpandedSections((prev) => ({ ...prev, [sectionKey]: true }));
+  }, [currentView]);
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Lista de Precios movida a Definiciones → no va en accesos directos
   const menuItems = [
-    { id: 'pos', label: 'Punto de Venta', Icon: ShoppingCart },
-    { id: 'prices', label: 'Lista de Precios', Icon: ClipboardList },
-    { id: 'reports', label: 'Reportes', Icon: BarChart3 },
-    { id: 'settings', label: 'Configuración', Icon: Settings },
+    { id: 'pos', label: 'Venta', Icon: ShoppingCart },
+    { id: 'sales', label: 'Ventas', Icon: Receipt },
+    { id: 'reports', label: 'Dashboard', Icon: BarChart3 },
   ];
 
   const sections: SidebarSection[] = [
@@ -131,7 +142,7 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
         { label: 'Clientes', Icon: Contact },
         { label: 'Productos', Icon: Package },
         { label: 'Balanzas', Icon: Scale },
-        { label: 'Lista de Precios', Icon: ClipboardList },
+        { id: 'prices', label: 'Lista de Precios', Icon: ClipboardList },
         { label: 'Grupo Selector', Icon: LayoutGrid },
         { label: 'Categoría Precio', Icon: DollarSign },
         { label: 'Autoriza Este Terminal', Icon: KeyRound },
@@ -190,6 +201,7 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
         {/* Secciones colapsables */}
         {sections.map((section) => {
           const isExpanded = expandedSections[section.key];
+          const sectionContainsActive = section.items.some((item) => item.id === currentView);
 
           return (
             <div key={section.key}>
@@ -200,12 +212,21 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
                   className="w-full flex items-center justify-between px-4 py-2 mb-1 rounded-lg hover:bg-accent transition-colors group"
                   aria-expanded={isExpanded}
                 >
-                  <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.1em]">
-                    {section.label}
+                  <span className="flex items-center gap-2">
+                    <span className={cn(
+                      "text-[10px] font-bold uppercase tracking-[0.1em]",
+                      sectionContainsActive ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      {section.label}
+                    </span>
+                    {sectionContainsActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
+                    )}
                   </span>
                   <ChevronDown
                     className={cn(
-                      "w-4 h-4 text-muted-foreground transition-transform duration-300",
+                      "w-4 h-4 transition-transform duration-300",
+                      sectionContainsActive ? "text-primary" : "text-muted-foreground",
                       isExpanded ? "rotate-0" : "-rotate-90"
                     )}
                   />
@@ -221,64 +242,79 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
                 className={cn(
                   "overflow-hidden transition-all duration-300",
                   !isCollapsed && !isExpanded && "max-h-0 opacity-0",
-                  (!isCollapsed && isExpanded || isCollapsed) && "max-h-[1000px] opacity-100"
+                  ((!isCollapsed && isExpanded) || isCollapsed) && "max-h-[1000px] opacity-100"
                 )}
               >
                 <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <div key={item.label}>
-                      {/* Ítem regular o cabecera de sub-sección */}
-                      <button
-                        className={cn(
-                          "flex items-center rounded-lg font-medium text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
-                          isCollapsed
-                            ? "w-12 h-12 justify-center mx-auto"
-                            : "w-full gap-3 py-2.5 pl-7 pr-4",
-                          item.children && !isCollapsed && "justify-between"
-                        )}
-                        title={isCollapsed ? item.label : undefined}
-                        onClick={item.children ? () => toggleSection(`${section.key}.${item.label}`) : undefined}
-                      >
-                        <span className="flex items-center gap-3">
-                          <item.Icon className="w-5 h-5 flex-shrink-0" />
-                          {!isCollapsed && <span>{item.label}</span>}
-                        </span>
-                        {item.children && !isCollapsed && (
-                          <ChevronDown
-                            className={cn(
-                              "w-3.5 h-3.5 transition-transform duration-300",
-                              expandedSections[`${section.key}.${item.label}`] ? "rotate-0" : "-rotate-90"
-                            )}
-                          />
-                        )}
-                      </button>
-
-                      {/* Sub-ítems */}
-                      {item.children && !isCollapsed && (
-                        <div
+                  {section.items.map((item) => {
+                    const isItemActive = !!item.id && item.id === currentView;
+                    return (
+                      <div key={item.label}>
+                        {/* Ítem regular o cabecera de sub-sección */}
+                        <button
                           className={cn(
-                            "overflow-hidden transition-all duration-300",
-                            expandedSections[`${section.key}.${item.label}`]
-                              ? "max-h-96 opacity-100"
-                              : "max-h-0 opacity-0"
+                            "flex items-center rounded-lg font-medium text-sm transition-all",
+                            isCollapsed
+                              ? "w-12 h-12 justify-center mx-auto"
+                              : "w-full gap-3 py-2.5 pl-7 pr-4",
+                            item.children && !isCollapsed && "justify-between",
+                            isItemActive
+                              ? "bg-primary text-primary-foreground shadow-md"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
+                          title={isCollapsed ? item.label : undefined}
+                          onClick={
+                            item.id
+                              ? () => onViewChange(item.id!)
+                              : item.children
+                              ? () => toggleSection(`${section.key}.${item.label}`)
+                              : undefined
+                          }
                         >
-                          <div className="space-y-1 mt-1">
-                            {item.children.map((child) => (
-                              <button
-                                key={child.label}
-                                className="w-full flex items-center gap-3 py-2 pl-12 pr-4 rounded-lg font-medium text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
-                                title={child.label}
-                              >
-                                <child.Icon className="w-4 h-4 flex-shrink-0" />
-                                <span>{child.label}</span>
-                              </button>
-                            ))}
+                          <span className="flex items-center gap-3">
+                            <item.Icon className={cn(
+                              "w-5 h-5 flex-shrink-0",
+                              isItemActive ? "text-primary-foreground" : ""
+                            )} />
+                            {!isCollapsed && <span>{item.label}</span>}
+                          </span>
+                          {item.children && !isCollapsed && (
+                            <ChevronDown
+                              className={cn(
+                                "w-3.5 h-3.5 transition-transform duration-300",
+                                expandedSections[`${section.key}.${item.label}`] ? "rotate-0" : "-rotate-90"
+                              )}
+                            />
+                          )}
+                        </button>
+
+                        {/* Sub-ítems */}
+                        {item.children && !isCollapsed && (
+                          <div
+                            className={cn(
+                              "overflow-hidden transition-all duration-300",
+                              expandedSections[`${section.key}.${item.label}`]
+                                ? "max-h-96 opacity-100"
+                                : "max-h-0 opacity-0"
+                            )}
+                          >
+                            <div className="space-y-1 mt-1">
+                              {item.children.map((child) => (
+                                <button
+                                  key={child.label}
+                                  className="w-full flex items-center gap-3 py-2 pl-12 pr-4 rounded-lg font-medium text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+                                  title={child.label}
+                                >
+                                  <child.Icon className="w-4 h-4 flex-shrink-0" />
+                                  <span>{child.label}</span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -305,7 +341,7 @@ export function Sidebar({ currentView, onViewChange, isCollapsed, onToggle }: Si
             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center border-2 border-card shadow-sm">
               <span className="text-primary-foreground font-bold text-xs">CP</span>
             </div>
-            <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#16A34A] rounded-full border-2 border-card"></div>
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-card" />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">

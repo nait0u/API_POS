@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -17,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ImportPriceDialog } from '@/components/precios/ImportPriceDialog';
 import { CreatePriceDialog } from '@/components/precios/CreatePriceDialog';
 import { EditPriceDialog } from '@/components/precios/EditPriceDialog';
@@ -27,6 +33,7 @@ import {
 } from '@/components/precios/ImportErrorBandeja';
 import { uploadPreciosNativo, ApiError } from '@/services/apiClient';
 import { usePrecios } from '@/hooks/usePrecios';
+import { useCapturaPrecio } from '@/hooks/useCapturaPrecio';
 import type { FiltroPrecios, SDTPrecios } from '@/types/precios';
 import {
   Search,
@@ -41,6 +48,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Home,
 } from 'lucide-react';
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
@@ -52,7 +60,6 @@ function formatCurrency(value: number | string): string {
 
 function formatDateTime(isoDateTime: string): string {
   if (!isoDateTime) return '—';
-  // "2022-12-11T17:08:42" → "2022-12-11 17:08"
   return isoDateTime.slice(0, 10) + ' ' + isoDateTime.slice(11, 16);
 }
 
@@ -91,6 +98,7 @@ export function PriceListView() {
     fetchPrecios,
     clearFilters,
     ubicaciones,
+    categorias,
     importOpen,
     importFormatOptions,
     importFormatLoading,
@@ -106,8 +114,6 @@ export function PriceListView() {
     createNewPrecio,
     openEdit,
     editingPrecio,
-    editingBC,
-    editLoading,
     saving,
     savePrecio,
     openExpire,
@@ -119,21 +125,51 @@ export function PriceListView() {
     filteredItems,
     setPage,
     setPageSize,
+    baseUbiCod,
   } = usePrecios();
+
+  const flags = useCapturaPrecio();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<LocalFilters>(() =>
     buildLocalFilters(filters)
   );
 
-  // Import error bandeja
   const [importErrors, setImportErrors] = useState<ImportErrorItem[]>([]);
   const [importSaving, setImportSaving] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Filter out ubicaciones with empty UbiCod (Radix SelectItem crashes on empty value)
   const validUbicaciones = ubicaciones.filter((u) => u.UbiCod);
+  const validCategorias = categorias.filter((c) => c.CategoriaPrecioIdl);
+
+  // Lookup: CategoriaPrecioIdl → CategoriaPrecioDescripcion
+  const categoriasMap = useMemo(
+    () => new Map(categorias.map((c) => [c.CategoriaPrecioIdl, c.CategoriaPrecioDescripcion])),
+    [categorias],
+  );
+
+  // ── Column count (for colSpan in empty/loading rows) ─────────────────────
+
+  const visibleColCount = useMemo(() => {
+    let count = 4; // CÓDIGO, DESCRIPCIÓN, PRECIO, ACCIONES — always visible
+    if (flags.showVigenciaIni) count++;
+    if (flags.showVigenciaFin) count++;
+    if (flags.showHora) count += 2;
+    if (flags.showUbicacion) count++;
+    if (flags.showCategoria) count++;
+    if (flags.showCantidad) count++;
+    if (flags.showDescuento) count += 2;
+    return count;
+  }, [flags]);
+
+  // ── Action bloqueo ────────────────────────────────────────────────────────
+  // Block edit/expire when the user has a location assignment (baseUbiCod !== '')
+  // and the row's location doesn't match the user's location.
+
+  function isActionBlocked(row: SDTPrecios): boolean {
+    return baseUbiCod !== '' && baseUbiCod !== row.PrecioUbiCod;
+  }
 
   // ── Filter helpers ────────────────────────────────────────────────────────
 
@@ -177,12 +213,12 @@ export function PriceListView() {
   const setField = <K extends keyof LocalFilters>(key: K, value: LocalFilters[K]) =>
     setLocalFilters((prev) => ({ ...prev, [key]: value }));
 
-  // ── Import handler (bypasses hook to capture structured errors) ───────────
+  // ── Import handler ────────────────────────────────────────────────────────
 
   const handleImport = async (format: string, _fileName: string, file: File) => {
     setImportSaving(true);
     try {
-      const result = await uploadPreciosNativo(filters.EmpKey, format, file);
+      const result = await uploadPreciosNativo(format, file);
       setImportSaving(false);
       const ok = result.Mensaje?.toLowerCase().includes('ok');
       closeImport();
@@ -198,7 +234,6 @@ export function PriceListView() {
           }))
         );
       } else {
-        // Single-message fallback: show it as one row in the bandeja
         const msg = err instanceof Error ? err.message : 'Error desconocido al importar.';
         setImportErrors([{ Id: 'ERROR', Description: msg }]);
       }
@@ -208,11 +243,24 @@ export function PriceListView() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+    <div className="flex-1 overflow-y-auto">
+
+      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      <div className="px-6 pt-8 pb-6 border-b border-border">
+        <div className="space-y-1">
+          <h1 className="text-foreground text-3xl tracking-tight">
+            Lista de Precios
+          </h1>
+          <p className="text-muted-foreground text-base">
+            Administra y consulta los precios del catálogo
+          </p>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-4">
 
       {/* ── Top Bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Quick text search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
@@ -228,7 +276,6 @@ export function PriceListView() {
           />
         </div>
 
-        {/* Filters toggle */}
         <Button
           variant="outline"
           aria-expanded={filtersOpen}
@@ -250,17 +297,14 @@ export function PriceListView() {
             : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
         </Button>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={openImport}>
-            <Upload className="w-4 h-4" aria-hidden="true" />
-            Importar
-          </Button>
-          <Button variant="default" onClick={openNew}>
-            <Plus className="w-4 h-4" aria-hidden="true" />
-            Nuevo Precio
-          </Button>
-        </div>
+        <Button variant="outline" onClick={openImport}>
+          <Upload className="w-4 h-4" aria-hidden="true" />
+          Importar
+        </Button>
+        <Button variant="default" onClick={openNew}>
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          Nuevo Precio
+        </Button>
       </div>
 
       {/* ── Filter Panel ─────────────────────────────────────────────────── */}
@@ -269,7 +313,6 @@ export function PriceListView() {
           <CardContent className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 
-              {/* Código interno */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-cod" className="text-sm font-medium text-foreground">
                   Código
@@ -283,7 +326,6 @@ export function PriceListView() {
                 />
               </div>
 
-              {/* Descripción */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-desc" className="text-sm font-medium text-foreground">
                   Descripción
@@ -296,7 +338,6 @@ export function PriceListView() {
                 />
               </div>
 
-              {/* Fecha de vigencia */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-fecha" className="text-sm font-medium text-foreground">
                   Fecha vigencia
@@ -310,7 +351,6 @@ export function PriceListView() {
                 />
               </div>
 
-              {/* Ubicación (combobox from API) */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-ubicacion" className="text-sm font-medium text-foreground">
                   Ubicación (UbiCod)
@@ -335,21 +375,30 @@ export function PriceListView() {
                 </Select>
               </div>
 
-              {/* Categoría precio */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-categoria" className="text-sm font-medium text-foreground">
                   Categoría precio
                 </label>
-                <Input
-                  id="filter-categoria"
-                  placeholder="Ej. LISTA01"
-                  className="font-mono"
-                  value={localFilters.CategoriaPrecioIdl}
-                  onChange={(e) => setField('CategoriaPrecioIdl', e.target.value)}
-                />
+                <Select
+                  value={localFilters.CategoriaPrecioIdl || '__all__'}
+                  onValueChange={(v) =>
+                    setField('CategoriaPrecioIdl', v === '__all__' ? '' : v)
+                  }
+                >
+                  <SelectTrigger id="filter-categoria" className="w-full">
+                    <SelectValue placeholder="Todas las categorías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas las categorías</SelectItem>
+                    {validCategorias.map((c) => (
+                      <SelectItem key={c.CategoriaPrecioIdl} value={c.CategoriaPrecioIdl}>
+                        {c.CategoriaPrecioDescripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Cantidad */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-cantidad" className="text-sm font-medium text-foreground">
                   Cantidad
@@ -367,7 +416,6 @@ export function PriceListView() {
               </div>
             </div>
 
-            {/* Filter actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <Button
                 variant="ghost"
@@ -407,36 +455,60 @@ export function PriceListView() {
         </div>
       )}
 
+      {/* ── Breadcrumbs ───────────────────────────────────────────────────── */}
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Home className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Inicio</span>
+        <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Definiciones</span>
+        <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span className="font-medium text-foreground" aria-current="page">Lista de Precios</span>
+      </nav>
+
       {/* ── Main Table ───────────────────────────────────────────────────── */}
       <Card>
-        <CardHeader className="border-b border-border">
-          <CardTitle className="text-foreground font-semibold text-lg">
-            Lista de Precios
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+          <TooltipProvider>
+          <Table containerClassName="overflow-auto max-h-[calc(100vh-22rem)]">
+            <TableHeader className="sticky top-0 z-10 bg-card border-b border-border shadow-sm">
               <TableRow>
                 <TableHead className="font-semibold text-foreground px-4">CÓDIGO</TableHead>
                 <TableHead className="font-semibold text-foreground px-4">DESCRIPCIÓN</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">INICIO</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">FIN</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">HORA INICIO</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">HORA FIN</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">UBICACIÓN</TableHead>
-                <TableHead className="font-semibold text-foreground px-4">CATEGORÍA</TableHead>
-                <TableHead className="font-semibold text-foreground px-4 text-right">CANT.</TableHead>
+                {flags.showVigenciaIni && (
+                  <TableHead className="font-semibold text-foreground px-4">INICIO VIGENCIA</TableHead>
+                )}
+                {flags.showVigenciaFin && (
+                  <TableHead className="font-semibold text-foreground px-4">FIN VIGENCIA</TableHead>
+                )}
+                {flags.showHora && (
+                  <TableHead className="font-semibold text-foreground px-4">HORA INICIO</TableHead>
+                )}
+                {flags.showHora && (
+                  <TableHead className="font-semibold text-foreground px-4">HORA FIN</TableHead>
+                )}
+                {flags.showUbicacion && (
+                  <TableHead className="font-semibold text-foreground px-4">UBICACIÓN</TableHead>
+                )}
+                {flags.showCategoria && (
+                  <TableHead className="font-semibold text-foreground px-4">CATEGORÍA</TableHead>
+                )}
+                {flags.showCantidad && (
+                  <TableHead className="font-semibold text-foreground px-4 text-right">CANT.</TableHead>
+                )}
                 <TableHead className="font-semibold text-foreground px-4 text-right">PRECIO</TableHead>
-                <TableHead className="font-semibold text-foreground px-4 text-right">DESCUENTO</TableHead>
-                <TableHead className="font-semibold text-foreground px-4 text-right">DESC. MÁX.</TableHead>
+                {flags.showDescuento && (
+                  <TableHead className="font-semibold text-foreground px-4 text-right">DESCUENTO</TableHead>
+                )}
+                {flags.showDescuento && (
+                  <TableHead className="font-semibold text-foreground px-4 text-right">DESC. MÁX.</TableHead>
+                )}
                 <TableHead className="font-semibold text-foreground px-4 text-center">ACCIONES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="h-32 text-center">
+                  <TableCell colSpan={visibleColCount} className="h-32 text-center">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
                       <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
                       <span className="text-base">Cargando precios...</span>
@@ -446,80 +518,130 @@ export function PriceListView() {
               ) : displayItems.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={13}
+                    colSpan={visibleColCount}
                     className="h-32 text-center text-muted-foreground text-base"
                   >
                     No se encontraron precios.
                   </TableCell>
                 </TableRow>
               ) : (
-                displayItems.map((item: SDTPrecios) => (
-                  <TableRow
-                    key={`${item.Empkey}-${item.ProductoKey}-${item.PrecioTimeInicio}-${item.PrecioUbiCod}-${item.CategoriaPrecioIdl}-${item.PrecioCantidad}`}
-                  >
-                    <TableCell className="px-4 font-mono text-sm text-foreground">
-                      {item.CodIntValor}
-                    </TableCell>
-                    <TableCell className="px-4 text-sm text-foreground max-w-xs truncate">
-                      {item.ProductoDescripcion}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground whitespace-nowrap">
-                      {formatDateTime(item.PrecioTimeInicio)}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground whitespace-nowrap">
-                      {formatDateTime(item.PrecioTimeFin)}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground">
-                      {item.PrecioHoraInicio}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground">
-                      {item.PrecioHoraFin}
-                    </TableCell>
-                    <TableCell className="px-4 text-sm text-foreground">
-                      {item.PrecioUbiCod || '—'}
-                    </TableCell>
-                    <TableCell className="px-4 text-sm text-foreground">
-                      {item.CategoriaPrecioIdl || '—'}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground text-right">
-                      {item.PrecioCantidad}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground text-right font-medium">
-                      {formatCurrency(item.PrecioItem)}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground text-right">
-                      {item.PrecioDescuentoPorcentaje}
-                    </TableCell>
-                    <TableCell className="px-4 font-mono text-sm text-foreground text-right">
-                      {item.PrecioDescuentoMax}
-                    </TableCell>
-                    <TableCell className="px-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Editar precio de ${item.ProductoDescripcion}`}
-                          className="hover:text-primary transition-colors"
-                          onClick={() => openEdit(item)}
-                        >
-                          <Edit className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Caducar precio de ${item.ProductoDescripcion}`}
-                          className="hover:text-destructive transition-colors"
-                          onClick={() => openExpire(item)}
-                        >
-                          <Ban className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                displayItems.map((item: SDTPrecios) => {
+                  const blocked = isActionBlocked(item);
+                  return (
+                    <TableRow
+                      key={`${item.Empkey}-${item.ProductoKey}-${item.PrecioTimeInicio}-${item.PrecioUbiCod}-${item.CategoriaPrecioIdl}-${item.PrecioCantidad}`}
+                    >
+                      <TableCell className="px-4 font-mono text-sm text-foreground">
+                        {item.CodIntValor}
+                      </TableCell>
+                      <TableCell className="px-4 text-sm text-foreground max-w-xs truncate">
+                        {item.ProductoDescripcion}
+                      </TableCell>
+                      {flags.showVigenciaIni && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground whitespace-nowrap">
+                          {formatDateTime(item.PrecioTimeInicio)}
+                        </TableCell>
+                      )}
+                      {flags.showVigenciaFin && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground whitespace-nowrap">
+                          {formatDateTime(item.PrecioTimeFin)}
+                        </TableCell>
+                      )}
+                      {flags.showHora && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground">
+                          {item.PrecioHoraInicio}
+                        </TableCell>
+                      )}
+                      {flags.showHora && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground">
+                          {item.PrecioHoraFin}
+                        </TableCell>
+                      )}
+                      {flags.showUbicacion && (
+                        <TableCell className="px-4 text-sm text-foreground">
+                          {item.PrecioUbiCod || '—'}
+                        </TableCell>
+                      )}
+                      {flags.showCategoria && (
+                        <TableCell className="px-4 text-sm text-foreground">
+                          {categoriasMap.get(item.CategoriaPrecioIdl) ?? (item.CategoriaPrecioIdl || '—')}
+                        </TableCell>
+                      )}
+                      {flags.showCantidad && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
+                          {Number(item.PrecioCantidad) === 0 ? 1 : Number(item.PrecioCantidad)}
+                        </TableCell>
+                      )}
+                      <TableCell className="px-4 font-mono text-sm text-foreground text-right font-medium">
+                        {formatCurrency(item.PrecioItem)}
+                      </TableCell>
+                      {flags.showDescuento && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
+                          {item.PrecioDescuentoPorcentaje}
+                        </TableCell>
+                      )}
+                      {flags.showDescuento && (
+                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
+                          {item.PrecioDescuentoMax}
+                        </TableCell>
+                      )}
+                      <TableCell className="px-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={
+                                    blocked
+                                      ? `Sin permiso para editar (ubicación diferente)`
+                                      : `Editar precio de ${item.ProductoDescripcion}`
+                                  }
+                                  disabled={blocked}
+                                  className="hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  onClick={() => openEdit(item)}
+                                >
+                                  <Edit className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p>{blocked ? 'Sin permiso: ubicación diferente' : 'Editar precio'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={
+                                    blocked
+                                      ? `Sin permiso para caducar (ubicación diferente)`
+                                      : `Caducar precio de ${item.ProductoDescripcion}`
+                                  }
+                                  disabled={blocked}
+                                  className="hover:text-destructive transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  onClick={() => openExpire(item)}
+                                >
+                                  <Ban className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p>{blocked ? 'Sin permiso: ubicación diferente' : 'Caducar precio'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
+          </TooltipProvider>
         </CardContent>
 
         {/* ── Pagination ───────────────────────────────────────────────── */}
@@ -589,10 +711,11 @@ export function PriceListView() {
       <CreatePriceDialog
         open={drawerOpen && isNewMode}
         onClose={closeDrawer}
-        empKey={filters.EmpKey}
         ubicaciones={validUbicaciones}
+        categorias={categorias}
         selectedProduct={selectedProduct}
-        saving={false}
+        saving={saving}
+        baseUbiCod={baseUbiCod}
         onSelectProduct={selectProductForNew}
         onClearProduct={clearSelectedProduct}
         onCreatePrecio={createNewPrecio}
@@ -601,8 +724,7 @@ export function PriceListView() {
       <EditPriceDialog
         open={drawerOpen && !isNewMode && editingPrecio !== null}
         item={editingPrecio}
-        precioChar={editingBC}
-        loading={editLoading}
+        categorias={categorias}
         saving={saving}
         onSave={savePrecio}
         onClose={closeDrawer}
@@ -621,6 +743,8 @@ export function PriceListView() {
         errors={importErrors}
         onClose={() => setImportErrors([])}
       />
+
+      </div>
     </div>
   );
 }

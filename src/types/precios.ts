@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Types alineados con el OpenAPI spec de xListaDePrecios (GeneXus backend)
+// Types del módulo Lista de Precios — alineados con el BFF (NestJS /bff/precios/*)
 // ---------------------------------------------------------------------------
 
 /** Fila de precio devuelta por GetPrecios / GetNovedades */
@@ -19,6 +19,7 @@ export interface SDTPrecios {
   PrecioItem: number;         // precio unitario
   PrecioDescuentoPorcentaje: number;
   PrecioDescuentoMax: number;
+  PrecioUnidadMedida: string;
 }
 
 /** Clave primaria compuesta de un precio */
@@ -32,15 +33,15 @@ export interface PrecioPK {
   PrecioHoraInicio: string;
 }
 
-/** Filtro que envía la UI → backend en GetPrecios */
+/** Filtro que envía la UI → BFF en GetPrecios */
 export interface FiltroPrecios {
-  EmpKey: number;
   CodIntValor?: string;
   ProductoDescripcion?: string;
   Ubicacion?: string;
   CategoriaPrecioIdl?: string;
   PrecioCantidad?: number;
   FechaFiltro?: string; // "YYYY-MM-DD"
+  LastSync?: string;    // ISO 8601 — delta-sync, valor del TimeStamp de la respuesta anterior
 }
 
 /** Respuesta de GetPrecios */
@@ -50,60 +51,48 @@ export interface GetPreciosOutput {
   Messages: GxMessage[];
 }
 
-/** Respuesta de GetBCPrecio (PrecioChar es un JSON string del BC) */
-export interface GetBCPrecioOutput {
-  PrecioChar: string;
-  Messages: GxMessage[];
-}
-
-/** Respuesta genérica con Mensaje (PutBCPrecio, CaducarPrecio, UploadPrecios) */
+/** Respuesta genérica con Mensaje (ActualizarPrecioDetalle, CaducarPrecio, UploadPrecios) */
 export interface MensajeOutput {
   Mensaje: string;
   Messages: GxMessage[];
 }
 
-/** Input para CaducarPrecio */
-export interface CaducarPrecioInput {
-  EmpKey: number;
+/** Input para ActualizarPrecioDetalle (sin EmpKey/Token — manejados por BFF) */
+export interface ActualizarPrecioDetalleInput {
   ProductoKey: number;
   PrecioTimeInicio: string;
   PrecioUbiCod: string;
   CategoriaPrecioIdl: string;
   PrecioCantidad: number;
   PrecioHoraInicio: string;
-  Token: string;
+  PrecioItemNuevo: number;
+  PrecioHoraFinNuevo: string;
+  PrecioTimeFinNuevo: string;
+  PrecioDescuentoPorcentajeNuevo: number;
+  PrecioDescuentoMaxNuevo: number;
 }
 
-/** Input para PutBCPrecio */
-export interface PutBCPrecioInput {
-  PrecioChar: string;
-  Token: string;
+/** Input para CaducarPrecio (sin EmpKey/Token — manejados por BFF) */
+export interface CaducarPrecioInput {
+  ProductoKey: number;
+  PrecioTimeInicio: string;
+  PrecioUbiCod: string;
+  CategoriaPrecioIdl: string;
+  PrecioCantidad: number;
+  PrecioHoraInicio: string;
 }
 
-/** Input para UploadPreciosByUrl (YAML: UploadPreciosByUrlInput) */
-export interface UploadPreciosByUrlInput {
-  EmpKey: number;
-  ParmTransConf: string;
-  FileUrl: string;
-  FileName: string;
-  Token: string;
-}
-
-/** Input para UploadPreciosNativo (YAML: UploadPreciosNativoInput) */
+/** Input para UploadPreciosNativo — FileBlobFile es base64, sin EmpKey/Token */
 export interface UploadPreciosNativoInput {
-  EmpKey: number;
   ParmTransConf: string;
-  FileBlobFile: string;   // object_id devuelto por POST /gxobject
+  FileBlobFile: string;   // base64 del archivo
   FileName: string;
-  Token: string;
 }
 
-/** Input para GetNovedades */
+/** Input para GetNovedades (sin EmpKey/Token — BFF usa lastSync en lugar de TimeStampIn) */
 export interface GetNovedadesInput {
-  EmpKey: number;
-  UbiCod: string;
-  TimeStampIn: string;
-  Token: string;
+  UbiCod?: string;
+  LastSync: string;
 }
 
 /** Respuesta de GetNovedades */
@@ -134,13 +123,11 @@ export interface GetProductosBuscadorOutput {
   Messages: GxMessage[];
 }
 
-/** Input para CrearPrecioNuevo — Token: StrControl = EmpKey + ProductoKey */
+/** Input para CrearPrecioNuevo (sin EmpKey/Token — manejados por BFF) */
 export interface CrearPrecioNuevoInput {
-  EmpKey: number;
   ProductoKey: number;
   UbiCod: string;
   PrecioValor: number;
-  Token: string;
 }
 
 /** Ubicación para combo (GetUbicaciones) */
@@ -152,6 +139,19 @@ export interface UbicacionItem {
 /** Respuesta de GetUbicaciones */
 export interface GetUbicacionesOutput {
   UbicacionesComboSDT: UbicacionItem[];
+  Messages: GxMessage[];
+}
+
+/** Categoría de precio para combo (GetCategoriasPrecio) */
+export interface CategoriaPrecioItem {
+  CategoriaPrecioIdl: string;
+  CategoriaPrecioDescripcion: string;
+  CategoriaPrecioTipo: string;
+}
+
+/** Respuesta de GetCategoriasPrecio */
+export interface GetCategoriasPrecioOutput {
+  CategoriaPrecioSDT: CategoriaPrecioItem[];
   Messages: GxMessage[];
 }
 
@@ -173,3 +173,37 @@ export interface SortState {
 /** Formatos de importación permitidos */
 export const IMPORT_FORMATS = ['PRECIO01', 'WOOCOM01'] as const;
 export type ImportFormat = (typeof IMPORT_FORMATS)[number];
+
+/**
+ * Datos del formulario (crear o editar) que se pasan desde los dialogs al hook.
+ * Los valores ocultos por CapturaPrecio deben enviarse con defaults seguros
+ * (0 para numéricos, '' para strings) para cumplir el contrato de GeneXus.
+ */
+export interface GuardarPrecioFormData {
+  ubiCod: string;
+  categoriaPrecioIdl: string;
+  precioCantidad: number;
+  precioHoraInicio: string;
+  precioHoraFin: string;
+  /** ISO date-time o cadena vacía si no aplica fin de vigencia */
+  precioTimeFin: string;
+  precioValor: number;
+  precioDescuentoPorcentaje: number;
+  precioDescuentoMax: number;
+}
+
+/** Input para GuardarPrecioAPI (POST) — unifica Crear y Editar en SCD Tipo 2, sin EmpKey/Token */
+export interface GuardarPrecioAPIInput {
+  ProductoKey: number;
+  /** Timestamp actual al momento del submit (nueva versión SCD Tipo 2) */
+  PrecioTimeInicio: string;
+  UbiCod: string;
+  CategoriaPrecioIdl: string;
+  PrecioCantidad: number;
+  PrecioHoraInicio: string;
+  PrecioHoraFin: string;
+  PrecioTimeFin: string;
+  PrecioValor: number;
+  PrecioDescuentoPorcentaje: number;
+  PrecioDescuentoMax: number;
+}

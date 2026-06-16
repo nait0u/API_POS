@@ -91,7 +91,10 @@ export function ImportPriceDialog({
 
   const handleSubmit = () => {
     if (!file || !selectedFormat || saving) return;
-    onImport(selectedFormat, file.name, file);
+    const fileToSubmit = file;
+    setFile(null);
+    setFileError(null);
+    onImport(selectedFormat, fileToSubmit.name, fileToSubmit);
   };
 
   const canSubmit = !!file && !!selectedFormat && !saving;

@@ -1,20 +1,24 @@
-import { Bell, HelpCircle, Menu, Calendar } from 'lucide-react';
+import { Bell, HelpCircle, Menu, Calendar, User, Briefcase } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { PROFILES, type ProfileId } from '@/context/ProfileContext';
+import { useProfileContext } from '@/context/useProfileContext';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
 export function Header({ onToggleSidebar }: HeaderProps) {
+  const { activeProfile, setActiveProfile } = useProfileContext();
+
   // Fecha formateada para el estilo RetailPro
-  const today = new Date().toLocaleDateString('es-ES', { 
-    weekday: 'long', 
-    day: 'numeric', 
-    month: 'long' 
+  const today = new Date().toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
   });
 
   return (
-    <header className="h-20 bg-[#1E40AF] flex items-center justify-between px-8 shadow-md z-10">
+    <header className="h-20 bg-primary flex items-center justify-between px-8 shadow-md z-10">
       {/* Lado Izquierdo: Toggle y Fecha */}
       <div className="flex items-center gap-6">
         <Button
@@ -27,22 +31,47 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         
         <div className="text-white">
           <h2 className="font-bold text-lg capitalize flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-blue-200" />
+            <Calendar className="w-4 h-4 text-brand-200" />
             {today}
           </h2>
-          <p className="text-blue-100 text-sm opacity-80">
+          <p className="text-brand-100 text-sm opacity-80">
             Terminal 01 • Sucursal Centro
           </p>
         </div>
       </div>
 
-      {/* Lado Derecho: Acciones Rápidas */}
+      {/* Lado Derecho: Perfil + Acciones Rápidas */}
       <div className="flex items-center gap-4">
+        {/* Profile Switcher */}
+        <div className="flex items-center gap-1 bg-white/10 rounded-xl p-1 border border-white/5">
+          {(Object.keys(PROFILES) as ProfileId[]).map((id) => {
+            const profile = PROFILES[id];
+            const isActive = activeProfile.id === id;
+            const Icon = profile.esCaja ? User : Briefcase;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveProfile(id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-white/20 text-white shadow-sm'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {profile.shortLabel}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="h-8 w-[1px] bg-white/20 hidden sm:block" />
+
         {/* Botón de Notificaciones con Badge Rojo como en la maqueta */}
         <Button className="relative bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all border border-white/5">
           <Bell className="w-5 h-5" />
           <span className="hidden md:inline font-medium text-sm">Notificaciones</span>
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1E40AF]">
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-primary">
             3
           </span>
         </Button>

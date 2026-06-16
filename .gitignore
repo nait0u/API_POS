@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +27,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code / AI tooling
+.agents/
+skills-lock.json
+
+# Reference material (design guidelines, not source code)
+FOR REFERENCE ONLY/
+
+# API specs generados desde el backend GeneXus (no son fuente del frontend)
+docs/*.yaml
+docs/*.yml
