@@ -19,16 +19,12 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
   return (
     <header className="h-20 bg-primary flex items-center justify-between px-8 shadow-md z-10">
-      {/* Lado Izquierdo: Toggle y Fecha */}
+      {/* Lado Izquierdo: Logo y Fecha */}
       <div className="flex items-center gap-6">
-        <Button
-          variant="ghost"
-          onClick={onToggleSidebar}
-          className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground p-2 rounded-lg transition-colors"
-        >
-          <Menu className="w-7 h-7" />
-        </Button>
-        
+        <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center border border-white/20 flex-shrink-0">
+          <span className="text-white font-bold text-xl">R</span>
+        </div>
+
         <div className="text-white">
           <h2 className="font-bold text-lg capitalize flex items-center gap-2">
             <Calendar className="w-4 h-4 text-brand-200" />

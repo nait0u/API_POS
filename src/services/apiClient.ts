@@ -26,11 +26,14 @@ const BFF = '/bff';
 export class ApiError extends Error {
   status: number;
   messages?: any[];
-  constructor(message: string, status: number, messages?: any[]) {
+  /** Body JSON parseado de la respuesta de error, cuando existe (ej. 428 LOTE_REQUERIDO) */
+  body?: unknown;
+  constructor(message: string, status: number, messages?: any[], body?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.messages = messages;
+    this.body = body;
   }
 }
 
@@ -55,6 +58,10 @@ export function setProfileHeaders(headers: Record<string, string>): void {
   _profileHeaders = headers;
 }
 
+export function getProfileHeaders(): Record<string, string> {
+  return { ..._profileHeaders };
+}
+
 export async function bffFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -76,10 +83,12 @@ export async function bffFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (!response.ok) {
     let message = `BFF ${path} → HTTP ${response.status}`;
+    let parsedBody: unknown;
     const body = await response.text().catch(() => '');
     if (body) {
       try {
-        const parsed = JSON.parse(body);
+        parsedBody = JSON.parse(body);
+        const parsed = parsedBody as { message?: unknown; error?: unknown };
         if (typeof parsed?.message === 'string') {
           message = parsed.message;
         } else if (typeof parsed?.error === 'string') {
@@ -91,10 +100,50 @@ export async function bffFetch<T>(path: string, options: RequestInit = {}): Prom
         message = body;
       }
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, undefined, parsedBody);
   }
 
   return (await response.json()) as T;
+}
+
+// ---------------------------------------------------------------------------
+// Manejo centralizado de errores — contrato /bff/api/pos/*
+// ---------------------------------------------------------------------------
+// Toda respuesta de error de /api/pos/* tiene la forma
+// { statusCode, errorCode, message, timestamp, ...extraFields }. Los hooks
+// deben interpretar el ApiError con esta función en vez de repetir el
+// switch por status en cada catch.
+
+export type PosErrorKind =
+  | 'auth'               // 401 — token inválido/expirado, redirigir a login
+  | 'not-found'          // 404 — producto/cliente/lote sin match
+  | 'not-editable'       // 409 — la NotaVenta no está en estado EDITANDO
+  | 'contexto-incompleto'// 412 — faltan EmpKey/PuntoAccesoKey
+  | 'lote-requerido'     // 428 — el producto exige seleccionar un lote (ver LoteRequeridoErrorBody)
+  | 'negocio'            // 422 (u otro no clasificado) — regla de negocio/matemática fallida
+  | 'desconocido';
+
+export interface PosErrorInfo {
+  kind: PosErrorKind;
+  message: string;
+  status: number;
+  body?: unknown;
+}
+
+export function interpretPosError(err: unknown): PosErrorInfo {
+  if (!(err instanceof ApiError)) {
+    return { kind: 'desconocido', message: err instanceof Error ? err.message : 'Error desconocido', status: 0 };
+  }
+  const { status, message, body } = err;
+  const kindByStatus: Record<number, PosErrorKind> = {
+    401: 'auth',
+    404: 'not-found',
+    409: 'not-editable',
+    412: 'contexto-incompleto',
+    428: 'lote-requerido',
+    422: 'negocio',
+  };
+  return { kind: kindByStatus[status] ?? 'desconocido', message, status, body };
 }
 
 // ---------------------------------------------------------------------------
@@ -350,6 +399,227 @@ export async function getFiltroCategoriasVenta(
       textoBusqueda: input.textoBusqueda || undefined,
     }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Carrito xVenta — endpoints del BFF (/bff/api/pos/carrito)
+// ---------------------------------------------------------------------------
+
+const POS = `${BFF}/api/pos`;
+
+import type {
+  DeltaCarritoResponseDto,
+  AgregarProductoCarritoInput,
+  FijarCantidadCarritoInput,
+  EliminarLineaCarritoInput,
+  GlosaCabeceraInput,
+  GlosaLineaInput,
+  DescuentoGlobalInput,
+  AsignarClienteCarritoInput,
+  AsignarClienteCarritoOutput,
+  AsignarVendedorCarritoInput,
+  TransportistaCarritoInput,
+  ReferenciasCarritoInput,
+  OmniboxAgregarInput,
+  ProductoResolucionDto,
+  GetLotesProductoOutput,
+  GetCatalogoOutput,
+} from '../types/carrito';
+
+export type { DeltaCarritoResponseDto, LoteProductoDto, LoteRequeridoErrorBody } from '../types/carrito';
+
+/** POST /carrito/producto — agrega producto de catálogo; cantidad SIEMPRE aditiva */
+export async function agregarProductoCarrito(input: AgregarProductoCarritoInput): Promise<DeltaCarritoResponseDto> {
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/producto`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/producto/cantidad — fija cantidad ABSOLUTA de una línea */
+export async function fijarCantidadCarrito(input: FijarCantidadCarritoInput): Promise<DeltaCarritoResponseDto> {
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/producto/cantidad`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** DELETE /carrito/linea?notaVentaKey=&notaVentaProductoLinea= — elimina una línea completa */
+export async function eliminarLineaCarrito(input: EliminarLineaCarritoInput): Promise<DeltaCarritoResponseDto> {
+  const params = new URLSearchParams({
+    notaVentaKey: String(input.notaVentaKey),
+    notaVentaProductoLinea: String(input.notaVentaProductoLinea),
+  });
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/linea?${params}`, { method: 'DELETE' });
+}
+
+/** PUT /carrito/glosa-cabecera — no retorna Delta */
+export async function setGlosaCabecera(input: GlosaCabeceraInput): Promise<{ ok: true }> {
+  return bffFetch<{ ok: true }>(`${POS}/carrito/glosa-cabecera`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/glosa-linea */
+export async function setGlosaLinea(input: GlosaLineaInput): Promise<DeltaCarritoResponseDto> {
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/glosa-linea`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * PUT /carrito/descuento-global — descuentoPorcentaje:0, descuentoTotal:0 elimina el descuento vigente.
+ * ⚠️ GeneXus recalcula el descuento de forma perezosa — el total con descuento recién
+ * se refleja en la SIGUIENTE mutación de carrito, no en esta respuesta ni en un GET
+ * de totales inmediato. No tratar esto como error.
+ */
+export async function setDescuentoGlobal(input: DescuentoGlobalInput): Promise<DeltaCarritoResponseDto> {
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/descuento-global`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/cliente — clienteKey: 0 desasigna */
+export async function setClienteCarrito(input: AsignarClienteCarritoInput): Promise<AsignarClienteCarritoOutput> {
+  return bffFetch<AsignarClienteCarritoOutput>(`${POS}/carrito/cliente`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/vendedor */
+export async function setVendedorCarrito(input: AsignarVendedorCarritoInput): Promise<{ ok: true }> {
+  return bffFetch<{ ok: true }>(`${POS}/carrito/vendedor`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/transportista */
+export async function setTransportista(input: TransportistaCarritoInput): Promise<{ ok: true }> {
+  return bffFetch<{ ok: true }>(`${POS}/carrito/transportista`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /carrito/referencias — operación bulk; referencias: [] elimina todas las existentes */
+export async function setReferencias(input: ReferenciasCarritoInput): Promise<{ ok: true }> {
+  return bffFetch<{ ok: true }>(`${POS}/carrito/referencias`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * POST /carrito/omnibox — resuelve código → ProductoKey, evalúa lote, agrega al carrito.
+ * Response 428: { code: 'LOTE_REQUERIDO', productoKey, lotes } — ver LoteRequeridoErrorBody,
+ * accesible vía `ApiError.body` en el catch (usar interpretPosError).
+ */
+export async function omniboxAgregar(input: OmniboxAgregarInput): Promise<DeltaCarritoResponseDto> {
+  return bffFetch<DeltaCarritoResponseDto>(`${POS}/carrito/omnibox`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Productos / OmniBox — endpoints del BFF (/bff/api/pos)
+// ---------------------------------------------------------------------------
+
+/** GET /omnibox/resolver?codigoEscaneado= */
+export async function resolverOmnibox(codigoEscaneado: string): Promise<ProductoResolucionDto> {
+  const params = new URLSearchParams({ codigoEscaneado });
+  return bffFetch<ProductoResolucionDto>(`${POS}/omnibox/resolver?${params}`);
+}
+
+/** GET /productos/:productoKey/lotes */
+export async function getLotesProducto(productoKey: number): Promise<GetLotesProductoOutput> {
+  return bffFetch<GetLotesProductoOutput>(`${POS}/productos/${productoKey}/lotes`);
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos — endpoints del BFF (/bff/api/pos/catalogos) — estables, cachear
+// ---------------------------------------------------------------------------
+
+function getCatalogo(nombre: string): Promise<GetCatalogoOutput> {
+  return bffFetch<GetCatalogoOutput>(`${POS}/catalogos/${nombre}`);
+}
+
+export const getTratamientoTributario = () => getCatalogo('tratamiento-tributario');
+export const getUnidadesMedida = () => getCatalogo('unidades-medida');
+export const getImpuestosEspeciales = () => getCatalogo('impuestos-especiales');
+export const getMotivosTraslado = () => getCatalogo('motivos-traslado');
+export const getTiposTraslado = () => getCatalogo('tipos-traslado');
+export const getActividadesEconomicas = () => getCatalogo('actividades-economicas');
+
+// ---------------------------------------------------------------------------
+// Clientes xVenta — endpoints del BFF (/bff/api/pos/clientes)
+// ---------------------------------------------------------------------------
+// ⚠️ Distinto del módulo legacy `getClientes`/`guardarCliente` de más abajo
+// (API xCliente de GeneXus) — son APIs paralelas del backend, ambas vigentes.
+
+import type {
+  GetClientesXVentaOutput,
+  GetClientesXVentaFiltro,
+  CrearClienteShellOutput,
+  CopiarClienteInput,
+  CopiarClienteOutput,
+  ActualizarClienteXVentaInput,
+} from '../types/clientesXVenta';
+
+/** GET /clientes?filtroRUT=&filtroNombre=&filtroGenerico= */
+export async function getClientesXVenta(filtro: GetClientesXVentaFiltro = {}): Promise<GetClientesXVentaOutput> {
+  const params = new URLSearchParams();
+  if (filtro.filtroRUT) params.set('filtroRUT', filtro.filtroRUT);
+  if (filtro.filtroNombre) params.set('filtroNombre', filtro.filtroNombre);
+  if (filtro.filtroGenerico) params.set('filtroGenerico', filtro.filtroGenerico);
+  const qs = params.size ? `?${params}` : '';
+  return bffFetch<GetClientesXVentaOutput>(`${POS}/clientes${qs}`);
+}
+
+/** POST /clientes/shell (sin body) — crea shell vacío */
+export async function crearClienteShellXVenta(): Promise<CrearClienteShellOutput> {
+  return bffFetch<CrearClienteShellOutput>(`${POS}/clientes/shell`, { method: 'POST' });
+}
+
+/** POST /clientes/copiar */
+export async function copiarClienteXVenta(input: CopiarClienteInput): Promise<CopiarClienteOutput> {
+  return bffFetch<CopiarClienteOutput>(`${POS}/clientes/copiar`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /clientes/:clienteKey */
+export async function actualizarClienteXVenta(
+  clienteKey: number,
+  input: ActualizarClienteXVentaInput,
+): Promise<{ ok: true }> {
+  return bffFetch<{ ok: true }>(`${POS}/clientes/${clienteKey}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Vendedores — endpoints del BFF (/bff/api/pos/vendedores)
+// ---------------------------------------------------------------------------
+
+import type { GetVendedoresOutput, GetVendedoresFiltro } from '../types/vendedores';
+
+/** GET /vendedores?vendedorKey=&vendedorExige=&filtroOmniBox=&filtroGenerico= */
+export async function getVendedores(filtro: GetVendedoresFiltro): Promise<GetVendedoresOutput> {
+  const params = new URLSearchParams({
+    vendedorKey: String(filtro.vendedorKey),
+    vendedorExige: String(filtro.vendedorExige),
+  });
+  if (filtro.filtroOmniBox) params.set('filtroOmniBox', filtro.filtroOmniBox);
+  if (filtro.filtroGenerico) params.set('filtroGenerico', filtro.filtroGenerico);
+  return bffFetch<GetVendedoresOutput>(`${POS}/vendedores?${params}`);
 }
 
 // ---------------------------------------------------------------------------

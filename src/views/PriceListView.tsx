@@ -26,6 +26,7 @@ import {
 import { ImportPriceDialog } from '@/components/precios/ImportPriceDialog';
 import { CreatePriceDialog } from '@/components/precios/CreatePriceDialog';
 import { EditPriceDialog } from '@/components/precios/EditPriceDialog';
+import { NumericDisplay } from '@/components/ui/NumericDisplay';
 import { ExpirePriceAlert } from '@/components/precios/ExpirePriceAlert';
 import {
   ImportErrorBandeja,
@@ -52,11 +53,6 @@ import {
 } from 'lucide-react';
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
-
-function formatCurrency(value: number | string): string {
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  return isNaN(num) ? '—' : `$${num.toFixed(2)}`;
-}
 
 function formatDateTime(isoDateTime: string): string {
   if (!isoDateTime) return '—';
@@ -568,21 +564,21 @@ export function PriceListView() {
                         </TableCell>
                       )}
                       {flags.showCantidad && (
-                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
-                          {Number(item.PrecioCantidad) === 0 ? 1 : Number(item.PrecioCantidad)}
+                        <TableCell className="px-4 font-tabular text-sm text-foreground text-right">
+                          <NumericDisplay value={Number(item.PrecioCantidad) === 0 ? 1 : item.PrecioCantidad} currency="" />
                         </TableCell>
                       )}
-                      <TableCell className="px-4 font-mono text-sm text-foreground text-right font-medium">
-                        {formatCurrency(item.PrecioItem)}
+                      <TableCell className="px-4 font-tabular text-sm text-foreground text-right font-medium">
+                        <NumericDisplay value={item.PrecioItem} />
                       </TableCell>
                       {flags.showDescuento && (
-                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
+                        <TableCell className="px-4 font-tabular text-sm text-foreground text-right">
                           {item.PrecioDescuentoPorcentaje}
                         </TableCell>
                       )}
                       {flags.showDescuento && (
-                        <TableCell className="px-4 font-mono text-sm text-foreground text-right">
-                          {item.PrecioDescuentoMax}
+                        <TableCell className="px-4 font-tabular text-sm text-foreground text-right">
+                          <NumericDisplay value={item.PrecioDescuentoMax} />
                         </TableCell>
                       )}
                       <TableCell className="px-4">

@@ -7,23 +7,23 @@ export type NotaVentaEstado = 'EDITANDO' | 'AFIRME' | ''; // Editando | Completa
 
 /** Fila de venta devuelta por POST /ventas/lista */
 export interface SDTVenta {
-  NotaVentaKey: number;
-  NotaVentaFecha: string;            // ISO date-time
-  ClienteKey: number;
-  ClienteNombreCompleto: string;
-  NotaVentaEstado: NotaVentaEstado;
-  NotaVentaFolioTri?: string;
-  NotaVentaGlosa?: string;
-  // campos adicionales que el API puede incluir
-  NotaVentaNumero?: string;
-  NotaVentaTotal?: number;
-  FormaPagoDescripcion?: string;
+  notaVentaKey: number;
+  notaVentaFecha: string;
+  notaVentaTiempo?: string;
+  clienteKey?: number;
+  clienteNombreCompleto: string;
+  notaVentaEstado: NotaVentaEstado;
+  notaVentaFolioTri?: number;
+  notaVentaGlosa?: string;
+  notaVentaNumero?: string;
+  notaVentaTotal?: number;
+  formaPagoDescripcion?: string;
 }
 
 /** Respuesta de POST /ventas/lista */
 export interface GetVentasOutput {
-  SDTVentas: SDTVenta[];
-  TimeStamp?: string;
+  ventas: SDTVenta[];
+  timeStamp?: string;
 }
 
 /** Filtros que envía la UI → BFF en /ventas/lista */
@@ -95,184 +95,173 @@ export interface GetCategoriasMenuPaginadoOutput {
   Messages?: GxMessage[];
 }
 
-/** Operaciones.mNotaVenta.Items.ProductoSelectorTouch.Productos_ProductosItem */
+/** BFF /ventas/pantalla/carta-touch → productos dentro de cada grupo */
 export interface GxProductoTouch {
-  ProductoKey: number;
-  ProductoCodigo: string;
-  ProductoDescripcion: string;
-  ProductoUnidadMedida: string;
-  ProductoUnidadMedida2a: string;
-  ProductoTratamientoTributario: string;
-  ProductoActEcoCod: number;
-  ProductoActEcoDescripcion: string;
-  ProductoStock: number;
-  ProductoPrecios: string;
-  ProductoModalidadVenta: number;
-  ProductoTieneStock: boolean;
-  ProductoVendeLote: boolean;
-  ItemInformacionAdicional: string;
+  productoKey: number;
+  productoCodigo: string;
+  productoDescripcion: string;
+  productoUnidadMedida: string;
+  productoUnidadMedida2a: string;
+  productoTratamientoTributario: string;
+  productoActEcoCod: number;
+  productoActEcoDescripcion: string;
+  productoStock: number;
+  productoPrecios: string;
+  productoModalidadVenta: number;
+  productoTieneStock: boolean;
+  productoVendeLote: boolean;
+  itemInformacionAdicional: string;
 }
 
-/** Operaciones.mNotaVenta.Items.ProductoSelectorTouch_GrupoItem */
+/** BFF /ventas/pantalla/carta-touch → ítem de grupo */
 export interface GxGrupoTouch {
-  GrupoSelectorIdentificador: string;
-  GrupoSelectorDescripcion: string;
-  GrupoSelectorTouchSelector: boolean;
-  GrupoSelectorOrden: number;
-  Productos: GxProductoTouch[];
+  grupoSelectorIdentificador: string;
+  grupoSelectorDescripcion: string;
+  grupoSelectorTouchSelector: boolean;
+  grupoSelectorOrden: number;
+  productos: GxProductoTouch[];
 }
 
-/**
- * Respuesta de GET /bff/ventas/pantalla/carta-touch
- * Mapea GetCartaTouchInicialOutput del YAML.
- */
+/** Respuesta de GET /bff/ventas/pantalla/carta-touch */
 export interface GetCartaTouchOutput {
-  SDTCartaVenta: { CartaGrupos: GxGrupoTouch[] };
+  cartaGrupos: GxGrupoTouch[];
   Messages?: GxMessage[];
 }
 
-/** POS.AI_API.Venta.SDTSelectorProductoGeneral */
+/** GET /bff/ventas/pantalla/selector-general — ítem de resultado */
 export interface GxSelectorProductoGeneralItem {
-  ProductoKey: number;
-  MItemCodVal: string;
-  ProductoDescripcion: string;
-  ProductoPrecio: number;
-  ProductoStock: number;
-  ProductoUnidadMedida: string;
-  ProductoVendeLote: boolean;
-  ItemInformacionAdicional: string;
+  productoKey: number;
+  tipoCodDes: string;
+  mItemCodVal: string;
+  productoDescripcion: string;
+  /** ⚠️ STRING ya formateado por GeneXus — NUNCA Number()/parseFloat(), renderizar tal cual */
+  precioPicture: string;
+  /** ⚠️ idem — pre-formateado por GeneXus */
+  cantidadPicture: string;
+  unidadMedida: string;
+  productoVendeLote: boolean;
+  itemInformacionAdicional: string;
 }
 
-/**
- * Respuesta de GET /bff/ventas/pantalla/selector-general
- * Mapea GetSelectorProductoGeneralOutput del YAML.
- */
+/** Respuesta de GET /bff/ventas/pantalla/selector-general */
 export interface GetSelectorGeneralOutput {
-  MostrarBotonVer: boolean;
-  SDTSelectorProductoGeneral: GxSelectorProductoGeneralItem[];
-  Messages?: GxMessage[];
+  mostrarBotonVer: boolean;
+  productos: GxSelectorProductoGeneralItem[];
 }
 
 /** POS.AI_API.Venta.SDTDetalleProductoVenta.StockXLocalizacion item */
 export interface GxStockXLocalizacionItem {
-  PuntoAccesoDescripcion: string;
-  ProductoStockCantidadInventario: number;
-  PuntoAccesoStockLocalizacion: string;
+  puntoAccesoDescripcion: string;
+  productoStockCantidadInventario: number;
+  puntoAccesoStockLocalizacion: string;
 }
 
 /** POS.AI_API.Venta.SDTDetalleProductoVenta.GlosaTecnica item */
 export interface GxGlosaTecnicaItem {
-  CategoriaNombre: string;
-  PropiedadDescripcion: string;
-  PropiedadValor: string;
+  categoriaNombre: string;
+  propiedadDescripcion: string;
+  propiedadValor: string;
 }
 
 /** POS.AI_API.Venta.SDTDetalleProductoVenta */
 export interface GxDetalleProductoVenta {
-  MItemNom: string;
-  ImagenesURI: string;
-  StockXLocalizacion: GxStockXLocalizacionItem[];
-  GlosaTecnica: GxGlosaTecnicaItem[];
+  mItemNom: string;
+  imagenesURI: string;
+  stockXLocalizacion: GxStockXLocalizacionItem[];
+  glosaTecnica: GxGlosaTecnicaItem[];
 }
 
 /**
- * Respuesta de GET /bff/ventas/pantalla/producto-detalles
- * Mapea GetProductoDetallesVentaOutput del YAML.
+ * Respuesta de GET /bff/ventas/pantalla/producto-detalles — el BFF
+ * devuelve el detalle directamente, sin wrapper.
  */
-export interface GetProductoDetallesOutput {
-  SDTDetalleProductoVenta: GxDetalleProductoVenta;
-  Messages?: GxMessage[];
-}
+export type GetProductoDetallesOutput = GxDetalleProductoVenta;
 
 // ---------------------------------------------------------------------------
 // Pantalla venta — Init
 // ---------------------------------------------------------------------------
 
 export interface GxPantallaVentaInitSettings {
-  UsaLectorQR: boolean;
-  PermiteCotizar: boolean;
-  LargoMinimoCodigo: number;
-  TipoDocumentoDefecto: string;
-  UsaComanda: boolean;
-  UsaProductoLibre: boolean;
-  VentasGuiasDespacho: boolean;
-  ModificaPrecioOk: boolean;
-  ModificaDescuentoOk: boolean;
+  usaLectorQR: boolean;
+  permiteCotizar: boolean;
+  largoMinimoCodigo: number;
+  tipoDocumentoDefecto: string;
+  usaComanda: boolean;
+  usaProductoLibre: boolean;
+  ventasGuiasDespacho: boolean;
+  modificaPrecioOk: boolean;
+  modificaDescuentoOk: boolean;
 }
 
 export interface GxPantallaVentaInitPermisos {
-  PuedeActualizar: boolean;
-  RecibePagos: boolean;
-  EditaVendedor: boolean;
-  EditaGlosa: boolean;
-  TomaPedidoOk: boolean;
-  DespachoOk: boolean;
+  puedeActualizar: boolean;
+  recibePagos: boolean;
+  editaVendedor: boolean;
+  editaGlosa: boolean;
+  tomaPedidoOk: boolean;
+  despachoOk: boolean;
 }
 
 export interface GxPantallaVentaInitMetodosDePago {
-  EfectivoOk: boolean;
-  TarjetaOk: boolean;
-  ConvenioOk: boolean;
-  TransferenciaOk: boolean;
-  ChequeOk: boolean;
-  CreditoOk: boolean;
+  efectivoOk: boolean;
+  tarjetaOk: boolean;
+  convenioOk: boolean;
+  transferenciaOk: boolean;
+  chequeOk: boolean;
+  creditoOk: boolean;
 }
 
 export interface GxPantallaVentaInitReglaDeNegocio {
-  ExigeVendedorOk: boolean;
-  ChequeClienteExige: boolean;
+  exigeVendedorOk: boolean;
+  chequeClienteExige: boolean;
 }
 
 export interface GxPantallaVentaInitEstado {
-  NotaVentaEstado: string;
-  IsEditable: boolean;
-  RedirectURI: string;
-  EmiteBoletaNormalOk: boolean;
-  CantidadComandasPendientes: number;
-  ImprimirComandasPendientesOk: boolean;
+  notaVentaEstado: string;
+  isEditable: boolean;
+  redirectURI: string;
+  emiteBoletaNormalOk: boolean;
+  cantidadComandasPendientes: number;
+  imprimirComandasPendientesOk: boolean;
 }
 
 export interface GxPantallaVentaInitActores {
-  ClienteKey: number;
-  ClienteNombreCompleto: string;
-  ClienteGiro: string;
-  VendedorKey: number;
-  VendedorApodo: string;
-  VendedorEditOk: boolean;
+  clienteKey: number;
+  clienteNombreCompleto: string;
+  clienteGiro: string;
+  vendedorKey: number;
+  vendedorApodo: string;
+  vendedorEditOk: boolean;
 }
 
 export interface GxPantallaVentaInitUIFlags {
-  PermiteEmitirGuiaVenta: boolean;
-  PermiteEmitirFactura: boolean;
-  PermiteEmitirBoleta: boolean;
-  PermiteEmitirTicketOk: boolean;
-  PermiteEmitirTicketNoTriOk: boolean;
-  PermiteEmitirGuiaTraslado: boolean;
-  PermiteAgregarReferencia: boolean;
-  PermiteDatosTransportista: boolean;
-  MuestraDescuentoGlobalOk: boolean;
-  VistaInicial: string;
-  MuestraCatBuscadoraOk: boolean;
-  MuestraTotalPagosOk: boolean;
-  MuestraTotalVueltoOk: boolean;
-  MuestraTotalBrutoOk: boolean;
-  PermiteEditarTipoDocTriOk: boolean;
+  permiteEmitirGuiaVenta: boolean;
+  permiteEmitirFactura: boolean;
+  permiteEmitirBoleta: boolean;
+  permiteEmitirTicketOk: boolean;
+  permiteEmitirTicketNoTriOk: boolean;
+  permiteEmitirGuiaTraslado: boolean;
+  permiteAgregarReferencia: boolean;
+  permiteDatosTransportista: boolean;
+  muestraDescuentoGlobalOk: boolean;
+  vistaInicial: string;
+  muestraCatBuscadoraOk: boolean;
+  muestraTotalPagosOk: boolean;
+  muestraTotalVueltoOk: boolean;
+  muestraTotalBrutoOk: boolean;
+  permiteEditarTipoDocTriOk: boolean;
 }
 
-export interface GxPantallaVentaInit {
-  Settings: GxPantallaVentaInitSettings;
-  Permisos: GxPantallaVentaInitPermisos;
-  MetodosDePago: GxPantallaVentaInitMetodosDePago;
-  ReglaDeNegocio: GxPantallaVentaInitReglaDeNegocio;
-  Estado: GxPantallaVentaInitEstado;
-  Actores: GxPantallaVentaInitActores;
-  UIFlags: GxPantallaVentaInitUIFlags;
-}
-
-/** Respuesta de GET /bff/ventas/pantalla/init */
+/** Respuesta de GET /bff/ventas/pantalla/init — el BFF devuelve los campos directamente (sin wrapper) */
 export interface GetPantallaVentaInitOutput {
-  SDTPantallaVentaInit: GxPantallaVentaInit;
-  Messages?: GxMessage[];
+  settings: GxPantallaVentaInitSettings;
+  permisos: GxPantallaVentaInitPermisos;
+  metodosDePago: GxPantallaVentaInitMetodosDePago;
+  reglaDeNegocio: GxPantallaVentaInitReglaDeNegocio;
+  estado: GxPantallaVentaInitEstado;
+  actores: GxPantallaVentaInitActores;
+  uiFlags: GxPantallaVentaInitUIFlags;
+  messages?: GxMessage[];
 }
 
 // ---------------------------------------------------------------------------
@@ -280,38 +269,34 @@ export interface GetPantallaVentaInitOutput {
 // ---------------------------------------------------------------------------
 
 export interface GxVentaTotalesMontos {
-  TotalBruto: number;
-  TotalPagos: number;
-  Vuelto: number;
-  TotalLista: number;
-  VueltoLista: number;
-  TotalAMostrar: number;
+  totalBruto: number;
+  totalPagos: number;
+  vuelto: number;
+  totalLista: number;
+  vueltoLista: number;
+  totalAMostrar: number;
 }
 
 export interface GxVentaTotalesEstadoCarrito {
-  ExisteProductoOk: boolean;
-  TieneItemLibreOk: boolean;
-  TieneProductoTabOk: boolean;
-  ExisteProductoXEncargarDeliveryOk: boolean;
+  existeProductoOk: boolean;
+  tieneItemLibreOk: boolean;
+  tieneProductoTabOk: boolean;
+  existeProductoXEncargarDeliveryOk: boolean;
 }
 
 export interface GxVentaTotalesFlags {
-  MostrarTotalOk: boolean;
-  MostrarPagosOk: boolean;
-  MostrarVueltoOk: boolean;
-  MostrarBtnPagosOk: boolean;
+  mostrarTotalOk: boolean;
+  mostrarPagosOk: boolean;
+  mostrarVueltoOk: boolean;
+  mostrarBtnPagosOk: boolean;
 }
 
-export interface GxVentaTotales {
-  Montos: GxVentaTotalesMontos;
-  EstadoCarrito: GxVentaTotalesEstadoCarrito;
-  Flags: GxVentaTotalesFlags;
-}
-
-/** Respuesta de GET /bff/ventas/pantalla/totales */
+/** Respuesta de GET /bff/ventas/pantalla/totales — el BFF devuelve los campos directamente (sin wrapper) */
 export interface GetPantallaVentaTotalesOutput {
-  SDTVentaTotales: GxVentaTotales;
-  Messages?: GxMessage[];
+  montos: GxVentaTotalesMontos;
+  estadoCarrito: GxVentaTotalesEstadoCarrito;
+  flags: GxVentaTotalesFlags;
+  messages?: GxMessage[];
 }
 
 // ---------------------------------------------------------------------------
@@ -319,35 +304,31 @@ export interface GetPantallaVentaTotalesOutput {
 // ---------------------------------------------------------------------------
 
 export interface GxVentaCarritoItem {
-  Linea: number;
-  ProductoKey: number;
-  CodigoInterno: string;
-  Descripcion: string;
-  UnidadMedida: string;
-  Cantidad: number;
-  Precio: number;
-  DescuentoMonto: number;
-  TotalItem: number;
-  EsNoFacturableOk: boolean;
-  EditaGlosaOk: boolean;
-  EsAnuladoOk: boolean;
-  EsDescuentoOk: boolean;
+  linea: number;
+  productoKey: number;
+  codigoInterno: string;
+  descripcion: string;
+  unidadMedida: string;
+  cantidad: number;
+  precio: number;
+  descuentoMonto: number;
+  totalItem: number;
+  esNoFacturableOk: boolean;
+  editaGlosaOk: boolean;
+  esAnuladoOk: boolean;
+  esDescuentoOk: boolean;
 }
 
 export interface GxVentaCarritoLineaEliminada {
-  LineaEliminadaItem: number;
+  lineaEliminadaItem: number;
 }
 
-export interface GxVentaCarrito {
-  Sync: { TimeStamp: string };
-  ItemsActualizados: GxVentaCarritoItem[];
-  LineasEliminadas: GxVentaCarritoLineaEliminada[];
-}
-
-/** Respuesta de GET /bff/ventas/pantalla/carrito */
+/** Respuesta de GET /bff/ventas/pantalla/carrito — el BFF devuelve los campos directamente (sin wrapper) */
 export interface GetPantallaVentaCarritoOutput {
-  SDTVentaCarrito: GxVentaCarrito;
-  Messages?: GxMessage[];
+  sync: { timeStamp: string };
+  itemsActualizados: GxVentaCarritoItem[];
+  lineasEliminadas: GxVentaCarritoLineaEliminada[];
+  messages?: GxMessage[];
 }
 
 // ---------------------------------------------------------------------------
@@ -356,9 +337,23 @@ export interface GetPantallaVentaCarritoOutput {
 
 export interface FiltroCategoriasInput {
   colCatClasificadoras?: GxCategoriaItem[];
-  colCatBuscadoras?: GxCategoriaItem[];
+  colCatBuscadoras?: string[];
   textoBusqueda?: string;
 }
 
-/** Respuesta de POST /bff/ventas/pantalla/filtro-categorias (misma forma que selector-general) */
-export type GetFiltroCategoriasOutput = GetSelectorGeneralOutput;
+/** POST /bff/ventas/pantalla/filtro-categorias — ítem de resultado (shape propio, distinto de selector-general) */
+export interface GxFiltroCategoriaProductoItem {
+  mItemKey: number;
+  mItemNom: string;
+  codigo: string;
+  categoria: string;
+  /** numérico real, a diferencia de precioPicture de selector-general */
+  precioItem: number;
+  stock: number;
+}
+
+/** Respuesta de POST /bff/ventas/pantalla/filtro-categorias */
+export interface GetFiltroCategoriasOutput {
+  mostrarBotonVer: boolean;
+  productos: GxFiltroCategoriaProductoItem[];
+}

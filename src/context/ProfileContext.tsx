@@ -42,7 +42,7 @@ const DEV_STATIC_HEADERS: Record<string, string> = {
   'x-pos-punto-acceso-key': '2',
   'x-pos-punto-acceso-desc': 'MC Tur Sin Inv Loc 1',
   'x-pos-estacion-turno-idl': 'CAJA1',
-  'x-pos-turno-caja-key': '87',
+  // x-pos-turno-caja-key se inyecta por PosStateContext tras GET /ventas/estado-caja
   'x-pos-vendedor-key': '5',
   'x-pos-modo': 'NotaVenta',
 };

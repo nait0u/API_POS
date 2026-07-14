@@ -19,7 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { bffFetch } from '@/services/apiClient';
+import { bffFetch, getProfileHeaders, setProfileHeaders } from '@/services/apiClient';
 import { ProfileContext } from '@/context/ProfileContext';
 import type {
   PosEstadoCajaPayload,
@@ -79,6 +79,8 @@ export function PosStateProvider({ children }: PosStateProviderProps) {
       console.log('[PosStateContext] raw:', JSON.stringify(raw));
       const mapped = mapEstadoCaja(raw);
       console.log('[PosStateContext] mapped:', JSON.stringify(mapped));
+      // Propagar turnoCajaKey a los headers globales para todas las llamadas posteriores
+      setProfileHeaders({ ...getProfileHeaders(), 'x-pos-turno-caja-key': String(mapped.turnoCajaKey) });
       setEstado(mapped);
       setStatus('ready');
     } catch (err) {

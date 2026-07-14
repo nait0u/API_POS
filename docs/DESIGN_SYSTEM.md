@@ -181,9 +181,22 @@ El tema oscuro invierte las superficies manteniendo la identidad de marca:
 | Tipo | Familia | Clase Tailwind | Uso |
 |---|---|---|---|
 | Sans-serif | `Inter, sans-serif` | `font-sans` | Todo el texto de interfaz |
-| Monospace | `Roboto Mono, monospace` | `font-mono` | Códigos de barra, SKU, datos numéricos críticos |
+| Monospace | `Roboto Mono, monospace` | `font-mono` | Códigos de producto, SKU, códigos de barra — identificadores alfanuméricos |
+| Tabulado (Inter) | `inherit` + OpenType `tnum` | `font-tabular` | Precios, totales, cantidades, montos financieros |
 
-**Regla:** Las columnas de código de barra/SKU **deben** usar `font-mono`. Existen las clases utilitarias `.sku-column` y `.barcode-data` en `index.css` para esto.
+**Regla — `font-mono` vs `font-tabular`:**
+
+| Dato | Clase | Razón |
+|---|---|---|
+| Código de producto (`2-113`) | `font-mono` | Identidad visual de identificador técnico |
+| SKU / código de barra | `font-mono` | Lectura de caracteres individuales, no alineación columnar |
+| Precio (`$18.100,00`) | `font-tabular` | Alineación de dígitos en columna con la fuente de diseño (Inter) |
+| Total / monto (`$36.200,00`) | `font-tabular` | Legibilidad financiera, mantiene el look del sistema |
+| Cantidad (`2,00`) | `font-tabular` | Consistencia con el resto de columnas numéricas |
+
+`font-tabular` activa las OpenType features `tnum` (tabular figures) y `lnum` (lining figures) sobre Inter, logrando la misma alineación columnar que una fuente mono sin romper la tipografía del sistema. Está definida en `@layer utilities` dentro de `index.css`.
+
+**Regla — Columnas de código/SKU:** usar `font-mono`. Existen las clases utilitarias `.sku-column` y `.barcode-data` en `index.css` para esto.
 
 #### Inputs numéricos (cantidad, precio)
 
@@ -364,6 +377,31 @@ El `DialogContent` tiene `max-h-[85vh]` y usa `flex flex-col` para evitar desbor
   <DialogFooter>...</DialogFooter>
 </DialogContent>
 ```
+
+#### `<NumericDisplay />`
+
+Componente atómico para renderizar valores financieros (precios, totales, cantidades). Formatea con `Intl.NumberFormat('es-CL')` y aplica `font-tabular` automáticamente.
+
+```tsx
+import { NumericDisplay } from '@/components/ui/NumericDisplay';
+
+// Precio con símbolo $ (default)
+<NumericDisplay value={18100} />                  // → $18.100,00
+
+// Cantidad sin símbolo
+<NumericDisplay value={item.Cantidad} currency="" />  // → 2,00
+
+// Con className adicional
+<NumericDisplay value={total} className="text-2xl font-bold" />
+```
+
+| Prop | Tipo | Default | Descripción |
+|---|---|---|---|
+| `value` | `number \| string` | — | Valor a formatear (`string` se parsea con `parseFloat`) |
+| `currency` | `string` | `'$'` | Prefijo de moneda. Pasar `""` para suprimir |
+| `className` | `string` | — | Clases adicionales (se fusionan con `font-tabular`) |
+
+**Regla:** Nunca renderizar un precio o total directamente como `{valor}` o con `toFixed()` inline. Siempre usar `<NumericDisplay>`.
 
 #### `<Select />`
 
@@ -663,7 +701,7 @@ Todas las tablas del sistema usan el mismo estilo base. Nunca personalizar el lo
 - `<TableRow>` de datos sin `className` extra — los estilos hover/border vienen del componente base.
 - Celdas de texto normal: `px-4 text-sm text-foreground`.
 - Celdas de código/SKU: agregar `font-mono`.
-- Celdas numéricas (precios, totales): `text-right font-medium font-mono`.
+- Celdas numéricas (precios, totales, cantidades): `text-right font-medium font-tabular` + componente `<NumericDisplay>`.
 - Columna de acciones: header con `text-center`, celda con `flex items-center justify-center gap-1`.
 - Estados de carga y vacío: `h-32 text-center` para altura consistente.
 
@@ -979,7 +1017,8 @@ Antes de considerar terminado cualquier cambio visual:
 - Usar semantic HTML (`<button>`, `<header>`, `<nav>`)
 - Implementar estados de loading/error
 - Mantener componentes pequeños y enfocados
-- Usar `font-mono` para datos numéricos y códigos
+- Usar `font-mono` para **códigos y SKU** (identificadores técnicos)
+- Usar `font-tabular` + `<NumericDisplay>` para **precios, totales y cantidades** financieras
 - Hacer todas las vistas scrolleables
 - Respetar la paleta institucional
 - Mostrar atajos de teclado en botones principales

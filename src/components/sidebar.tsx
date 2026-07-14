@@ -4,6 +4,7 @@ import {
   ShoppingCart,
   ClipboardList,
   BarChart3,
+  Menu,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -171,12 +172,20 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Logo */}
-      <div className="p-6 border-b border-border">
+      {/* Toggle + Nombre */}
+      <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-primary-foreground font-bold text-2xl">R</span>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className={cn(
+              "w-12 h-12 rounded-xl flex-shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+              isCollapsed && "mx-auto"
+            )}
+          >
+            <Menu className="w-6 h-6" />
+          </Button>
           {!isCollapsed && (
             <div>
               <h1 className="text-foreground font-bold text-lg leading-tight">AndesPOS</h1>
@@ -187,7 +196,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 p-4 overflow-y-auto space-y-6">
+      <nav className={cn(
+        "flex-1 overflow-y-auto overflow-x-visible space-y-6",
+        isCollapsed ? "py-4 px-0" : "p-4"
+      )}>
 
         {/* Módulos Principales */}
         <div className="space-y-1">
@@ -198,7 +210,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               className={cn(
                 "flex items-center rounded-lg font-medium text-sm transition-all group",
                 isCollapsed
-                  ? "w-12 h-12 justify-center mx-auto"
+                  ? "w-full h-12 justify-center"
                   : "w-full gap-3 px-4 py-3",
                 isActive(item.path)
                   ? "bg-primary text-primary-foreground shadow-md"
@@ -270,7 +282,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           className={cn(
                             "flex items-center rounded-lg font-medium text-sm transition-all",
                             isCollapsed
-                              ? "w-12 h-12 justify-center mx-auto"
+                              ? "w-full h-12 justify-center"
                               : "w-full gap-3 py-2.5 pl-7 pr-4",
                             item.children && !isCollapsed && "justify-between",
                             isItemActive

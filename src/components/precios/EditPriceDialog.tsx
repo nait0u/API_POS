@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useCapturaPrecio } from '@/hooks/useCapturaPrecio';
 import type { SDTPrecios, GuardarPrecioFormData, CategoriaPrecioItem } from '@/types/precios';
 import { Loader2, Save } from 'lucide-react';
+import { NumericDisplay } from '@/components/ui/NumericDisplay';
 
 // ── Validation ──────────────────────────────────────────────────────────────
 
@@ -198,7 +199,7 @@ export function EditPriceDialog({
               {flags.showCantidad && (
                 <div className="space-y-0.5">
                   <p className="text-xs font-medium text-muted-foreground">Cantidad</p>
-                  <p className="text-sm text-foreground font-mono">{item.PrecioCantidad}</p>
+                  <NumericDisplay value={item.PrecioCantidad} currency="" className="text-sm text-foreground" />
                 </div>
               )}
 
@@ -287,7 +288,7 @@ export function EditPriceDialog({
                   type="number"
                   step="0.01"
                   min="0"
-                  className="font-mono text-base border-2 border-brand-200 focus-visible:border-primary"
+                  className="font-tabular text-base border-2 border-brand-200 focus-visible:border-primary"
                   placeholder="0.00"
                   value={precioItem}
                   aria-describedby={fieldErrors.precioItem ? 'err-precio' : undefined}
@@ -314,7 +315,7 @@ export function EditPriceDialog({
                       step="0.01"
                       min="0"
                       max="100"
-                      className="font-mono border-2 border-brand-200 focus-visible:border-primary"
+                      className="font-tabular border-2 border-brand-200 focus-visible:border-primary"
                       placeholder="0.00"
                       value={descPorcentaje}
                       aria-describedby={fieldErrors.descPorcentaje ? 'err-desc-p' : undefined}
@@ -336,7 +337,7 @@ export function EditPriceDialog({
                       type="number"
                       step="0.01"
                       min="0"
-                      className="font-mono border-2 border-brand-200 focus-visible:border-primary"
+                      className="font-tabular border-2 border-brand-200 focus-visible:border-primary"
                       placeholder="0.00"
                       value={descMax}
                       aria-describedby={fieldErrors.descMax ? 'err-desc-max' : undefined}

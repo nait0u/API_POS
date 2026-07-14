@@ -1,3 +1,16 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+.tabular-nums-pos {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" on, "lnum" on;
+}
+
+@layer utilities {
+  .font-tabular {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" on, "lnum" on;
+    font-family: inherit; /* Mantiene la fuente sans-serif (Inter) */
+  }
+}

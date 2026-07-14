@@ -56,7 +56,7 @@ import type { FiltroVentas, NotaVentaEstado } from '@/types/ventas';
 const TODAY = new Date().toISOString().slice(0, 10);
 
 function estadoBadge(rawEstado: string) {
-  const estado = rawEstado.trim() as NotaVentaEstado;
+  const estado = (rawEstado ?? '').trim() as NotaVentaEstado;
   if (estado === 'EDITANDO') {
     return (
       <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">
@@ -225,9 +225,9 @@ export function SalesHistoryView() {
       ventas.filter(
         (v) =>
           searchCustomer === '' ||
-          v.ClienteNombreCompleto.toLowerCase().includes(searchCustomer.toLowerCase()) ||
-          String(v.NotaVentaKey).includes(searchCustomer) ||
-          (v.NotaVentaNumero?.toLowerCase().includes(searchCustomer.toLowerCase()) ?? false),
+          v.clienteNombreCompleto.toLowerCase().includes(searchCustomer.toLowerCase()) ||
+          String(v.notaVentaKey).includes(searchCustomer) ||
+          (v.notaVentaNumero?.toLowerCase().includes(searchCustomer.toLowerCase()) ?? false),
       ),
     [ventas, searchCustomer],
   );
@@ -235,7 +235,7 @@ export function SalesHistoryView() {
   const sortedVentas = useMemo(
     () =>
       [...filteredVentas].sort((a, b) =>
-        sortOrder === 'desc' ? b.NotaVentaKey - a.NotaVentaKey : a.NotaVentaKey - b.NotaVentaKey,
+        sortOrder === 'desc' ? b.notaVentaKey - a.notaVentaKey : a.notaVentaKey - b.notaVentaKey,
       ),
     [filteredVentas, sortOrder],
   );
@@ -457,24 +457,24 @@ export function SalesHistoryView() {
                     </TableRow>
                   ) : (
                     displayVentas.map((venta) => (
-                      <TableRow key={venta.NotaVentaKey}>
+                      <TableRow key={venta.notaVentaKey}>
                         <TableCell className="px-4 font-mono text-sm text-foreground">
-                          {venta.NotaVentaKey}
+                          {venta.notaVentaKey}
                         </TableCell>
                         <TableCell className="px-4 text-sm text-foreground whitespace-nowrap">
-                          {formatFecha(venta.NotaVentaFecha)}
+                          {formatFecha(venta.notaVentaFecha)}
                         </TableCell>
                         <TableCell className="px-4 text-sm text-foreground">
-                          {venta.ClienteNombreCompleto}
+                          {venta.clienteNombreCompleto}
                         </TableCell>
                         <TableCell className="px-4">
-                          {estadoBadge(venta.NotaVentaEstado)}
+                          {estadoBadge(venta.notaVentaEstado)}
                         </TableCell>
                         <TableCell className="px-4 font-mono text-sm text-foreground">
-                          {venta.NotaVentaFolioTri ?? '—'}
+                          {venta.notaVentaFolioTri ?? '—'}
                         </TableCell>
                         <TableCell className="px-4 text-sm text-foreground">
-                          {venta.NotaVentaGlosa ?? '—'}
+                          {venta.notaVentaGlosa ?? '—'}
                         </TableCell>
                         <TableCell className="px-4">
                           <div className="flex items-center justify-center gap-1">
@@ -484,8 +484,8 @@ export function SalesHistoryView() {
                                   variant="ghost"
                                   size="icon"
                                   className="text-primary hover:bg-brand-50 hover:text-primary"
-                                  aria-label={`Continuar venta ${venta.NotaVentaNumero}`}
-                                  onClick={() => navigate(`/ventas/${venta.NotaVentaKey}`)}
+                                  aria-label={`Continuar venta ${venta.notaVentaNumero}`}
+                                  onClick={() => navigate(`/ventas/${venta.notaVentaKey}`)}
                                 >
                                   <ChevronRight className="w-5 h-5" />
                                 </Button>
@@ -495,16 +495,16 @@ export function SalesHistoryView() {
                               </TooltipContent>
                             </Tooltip>
 
-                            {venta.NotaVentaEstado !== 'AFIRME' && (
+                            {venta.notaVentaEstado !== 'AFIRME' && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => setConfirmAnularKey(venta.NotaVentaKey)}
+                                    onClick={() => setConfirmAnularKey(venta.notaVentaKey)}
                                     disabled={isAnulando}
                                     className="text-muted-foreground hover:text-destructive hover:bg-danger-100"
-                                    aria-label={`Anular venta ${venta.NotaVentaNumero}`}
+                                    aria-label={`Anular venta ${venta.notaVentaNumero}`}
                                   >
                                     <Trash2 className="w-5 h-5" />
                                   </Button>

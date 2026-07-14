@@ -38,12 +38,12 @@ export function useVentas(): UseVentasReturn {
       const result = await apiGetVentas({ ...filtro, lastSync: syncTimestampRef.current });
       // GeneXus rellena strings con espacios — normalizar NotaVentaEstado en un solo lugar
       setVentas(
-        (result.SDTVentas ?? []).map((v) => ({
+        (result.ventas ?? []).map((v) => ({
           ...v,
-          NotaVentaEstado: v.NotaVentaEstado.trim() as typeof v.NotaVentaEstado,
+          notaVentaEstado: v.notaVentaEstado.trim() as typeof v.notaVentaEstado,
         })),
       );
-      syncTimestampRef.current = result.TimeStamp ?? undefined;
+      syncTimestampRef.current = result.timeStamp ?? undefined;
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Error al obtener las ventas';
       throw new Error(message);
